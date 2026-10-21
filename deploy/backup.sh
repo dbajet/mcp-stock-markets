@@ -32,6 +32,11 @@ fi
 date -u +%s > /backups/last-success
 # A dead-man's switch: the monitor alerts a person when these pings stop — a failed
 # backup, a dead sidecar or a dead host alike. Its own failure must not fail the backup.
-curl -fsS --max-time 10 --retry 3 -o /dev/null "${BACKUP_HEARTBEAT_URL}" \
-    || echo "warning: heartbeat ping failed" >&2
+# Optional while no monitor exists: the run says so in its log.
+if [ -n "${BACKUP_HEARTBEAT_URL:-}" ]; then
+    curl -fsS --max-time 10 --retry 3 -o /dev/null "${BACKUP_HEARTBEAT_URL}" \
+        || echo "warning: heartbeat ping failed" >&2
+else
+    echo "warning: BACKUP_HEARTBEAT_URL is empty — no monitor is told about this backup" >&2
+fi
 echo "backup done: ${STAMP} slot ${DAY}"

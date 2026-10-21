@@ -130,7 +130,7 @@ Database changes are additive, so the previous release still runs.
 
 **Backups**: a sidecar container dumps the database daily, encrypts the dump with
 [age](https://age-encryption.org) to a key whose private half never touches the server, and uploads it to S3.
-`BACKUP_HEARTBEAT_URL` names a monitor (healthchecks.io…) that alerts when backups stop. What a backup keeps:
+Set `BACKUP_HEARTBEAT_URL` to a monitor (healthchecks.io…) that alerts when backups stop; left empty, every backup and every deploy warns that nobody would be alerted. What a backup keeps:
 the account, the model connections, the chosen companies, the portfolio, every transaction and every run.
 
 ### Restore drill (every quarter)

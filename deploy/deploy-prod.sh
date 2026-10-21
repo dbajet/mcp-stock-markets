@@ -128,9 +128,15 @@ for name in DATA_ENCRYPTION_KEY DB_PASSWORD APP_BASE_URL SMTP_USER SMTP_PASSWORD
 done
 # The app's .env cannot prove that the sidecar can authenticate or encrypt
 # future backups, so its separately scoped file is validated too.
-for name in DB_PASSWORD BACKUP_AGE_RECIPIENT BACKUP_HEARTBEAT_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY S3_BACKUP_BUCKET; do
+for name in DB_PASSWORD BACKUP_AGE_RECIPIENT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY S3_BACKUP_BUCKET; do
     refuse_placeholder "${name}" "$(env_value "${name}" .env.backup)" .env.backup
 done
+# Without a heartbeat monitor yet (the owner's choice, recorded in the audit), an
+# empty URL is allowed and shouted about; a placeholder is still refused.
+case "$(env_value BACKUP_HEARTBEAT_URL .env.backup)" in
+    "") echo "⚠️  BACKUP_HEARTBEAT_URL is empty: nobody is alerted if backups stop" ;;
+    CHANGE_ME*|change-me|placeholder) echo "❌ BACKUP_HEARTBEAT_URL in .env.backup is a placeholder — set a URL or leave it empty"; exit 1 ;;
+esac
 case "$(env_value BACKUP_AGE_RECIPIENT .env.backup)" in
     age1*) ;;
     *) echo "❌ BACKUP_AGE_RECIPIENT in .env.backup is not an age public key (age1…)"; exit 1 ;;
