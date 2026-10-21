@@ -1,0 +1,7 @@
+# Allow-list: only what the Dockerfile copies reaches the build context — never
+# .env, .env.backup, dumps, .git or a local .venv.
+*
+!pyproject.toml
+!uv.lock
+!app/
+**/__pycache__

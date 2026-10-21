@@ -1,0 +1,12 @@
+.env
+.env.backup
+.venv/
+__pycache__/
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.idea/
+deploy/local.env
+# The Alpha Vantage key as first handed over; it belongs in .env.
+alphavantage-api-key

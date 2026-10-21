@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="app-version" content="__VERSION__">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>MCP Stock Markets</title>
+  <link rel="icon" href="/static/favicon.svg?v=__BUILD__" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=__BUILD__">
+  <link rel="manifest" href="/static/manifest.webmanifest?v=__BUILD__">
+  <!-- Before the stylesheet and without defer: data-theme is on <html> before the first paint. -->
+  <script src="/static/theme.js?v=__BUILD__"></script>
+  <link rel="stylesheet" href="/static/ui.css?v=__BUILD__">
+  <script defer src="/static/icons.js?v=__BUILD__"></script>
+  <script defer src="/static/app.js?v=__BUILD__"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="app-header">
+    <div class="header-start">
+      <span class="brand">
+        <span class="brand-logo" data-icon="logo" aria-hidden="true"></span>
+        <span class="brand-name">MCP Stock Markets</span>
+      </span>
+      <button type="button" class="version" id="version-button" aria-expanded="false" aria-controls="version-text" aria-label="Version">
+        <span data-icon="tag" aria-hidden="true"></span>
+        <span class="version-text" id="version-text">v__VERSION__</span>
+      </button>
+    </div>
+    <nav class="app-nav" id="app-nav" aria-label="Main" hidden>
+      <button type="button" data-nav="portfolio"><span data-icon="wallet" aria-hidden="true"></span><span>Portfolio</span></button>
+      <button type="button" data-nav="market"><span data-icon="chart" aria-hidden="true"></span><span>Market</span></button>
+      <button type="button" data-nav="agent"><span data-icon="bot" aria-hidden="true"></span><span>Agent</span></button>
+      <button type="button" data-nav="trades"><span data-icon="list" aria-hidden="true"></span><span>Transactions</span></button>
+    </nav>
+    <div class="header-tools">
+      <button type="button" class="icon-button" id="settings-open" data-nav="settings" aria-label="Language models" title="Language models" hidden>
+        <span data-icon="gear" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="icon-button" id="theme-toggle" aria-label="Switch between light and dark">
+        <span class="icon-when-dark" data-icon="sun" aria-hidden="true"></span>
+        <span class="icon-when-light" data-icon="moon" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="icon-button" id="sign-out" aria-label="Sign out" hidden>
+        <span data-icon="logout" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main" class="shell" tabindex="-1">
+    <p class="status" id="status" role="status" aria-live="polite" hidden></p>
+
+    <section data-view="loading" aria-busy="true">
+      <p class="muted">Loading…</p>
+    </section>
+
+    <section data-view="sign-in" class="narrow" aria-labelledby="sign-in-title" hidden>
+      <h1 id="sign-in-title">Sign in</h1>
+      <p class="muted">An AI agent trades a virtual portfolio of S&amp;P 500 stocks through MCP servers. Sign-in is
+        for the app's owner.</p>
+      <div class="card">
+        <form id="link-form" novalidate>
+          <label for="sign-in-email">Email address</label>
+          <input id="sign-in-email" name="email" type="email" autocomplete="email" inputmode="email" required>
+          <button type="submit" class="button primary block" id="link-submit">
+            <span data-icon="mail" aria-hidden="true"></span><span>Email me a sign-in link</span>
+          </button>
+        </form>
+        <p class="notice" id="link-sent" role="status" hidden></p>
+      </div>
+    </section>
+
+    <section data-view="link" class="narrow" aria-labelledby="link-title" hidden>
+      <h1 id="link-title">Finish signing in</h1>
+      <div class="card">
+        <p>This sign-in link works once. Press the button to sign in on this device.</p>
+        <button type="button" class="button primary block" id="link-confirm">Sign in</button>
+        <button type="button" class="button block" id="link-back" hidden>Ask for a new link</button>
+      </div>
+    </section>
+
+    <section data-view="portfolio" aria-labelledby="portfolio-title" hidden>
+      <div class="view-head">
+        <h1 id="portfolio-title">Portfolio</h1>
+        <span class="chip" id="portfolio-market"></span>
+      </div>
+      <p class="muted small">Virtual money only. The agent buys and sells through the broker MCP server; this page
+        only watches.</p>
+      <ul class="stats" id="portfolio-stats" aria-label="Portfolio totals"></ul>
+      <section class="card" aria-labelledby="chart-title">
+        <h2 id="chart-title">Value over time</h2>
+        <div class="chart" id="portfolio-chart"></div>
+        <p class="muted small" id="chart-empty" hidden>No valuation yet: one is recorded after each agent run and
+          every half hour while the market is open.</p>
+      </section>
+      <section class="card" aria-labelledby="positions-title">
+        <h2 id="positions-title">Positions</h2>
+        <p class="muted" id="positions-empty" hidden>No position: all of the portfolio is cash.</p>
+        <div class="table-wrap">
+          <table class="data-table" id="positions-table" hidden>
+            <thead>
+              <tr><th scope="col">Stock</th><th scope="col" class="number">Shares</th><th scope="col" class="number">Cost</th>
+                <th scope="col" class="number">Price</th><th scope="col" class="number">Value</th><th scope="col" class="number">Gain</th></tr>
+            </thead>
+            <tbody id="positions-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section data-view="market" aria-labelledby="market-title" hidden>
+      <div class="view-head">
+        <h1 id="market-title">Market</h1>
+        <span class="chip" id="market-status"></span>
+      </div>
+      <p class="muted small" id="market-hint"></p>
+      <section class="card" aria-labelledby="universe-title">
+        <h2 id="universe-title">The agent's market</h2>
+        <p class="muted small" id="universe-count"></p>
+        <p class="muted" id="universe-empty" hidden>No company yet: the agent can buy nothing. Add some below.</p>
+        <ul class="universe-list" id="universe-list" aria-label="Companies the agent may buy"></ul>
+      </section>
+      <section class="card" aria-labelledby="sp500-title">
+        <div class="view-head">
+          <h2 id="sp500-title">S&amp;P 500</h2>
+          <button type="button" class="button small quiet" id="sp500-refresh">
+            <span data-icon="refresh" aria-hidden="true"></span><span>Read the list again</span>
+          </button>
+        </div>
+        <p class="muted small" id="sp500-summary"></p>
+        <form class="toolbar" id="company-search" role="search">
+          <label for="company-query" class="visually-hidden">Symbol or name</label>
+          <span class="search-field">
+            <span data-icon="search" aria-hidden="true"></span>
+            <input id="company-query" type="search" placeholder="Symbol or name" autocomplete="off">
+          </span>
+          <label for="company-sector" class="visually-hidden">Sector</label>
+          <select id="company-sector"><option value="">Every sector</option></select>
+        </form>
+        <ul class="company-list" id="company-list" aria-label="S&amp;P 500 companies found"></ul>
+      </section>
+    </section>
+
+    <section data-view="agent" aria-labelledby="agent-title" hidden>
+      <div class="view-head">
+        <h1 id="agent-title">Agent</h1>
+        <button type="button" class="button primary" id="agent-run">
+          <span data-icon="play" aria-hidden="true"></span><span>Run now</span>
+        </button>
+      </div>
+      <div class="notice">
+        <p>A language model with no access to anything but the tools of three <strong>MCP servers</strong>. Each run,
+          the agent lists their tools (<code>tools/list</code>), then calls them (<code>tools/call</code>) as the model
+          decides, until it writes a summary:</p>
+        <ul class="mcp-legend">
+          <li><span class="server-badge" data-server="sp500">sp500</span> the S&amp;P 500 companies (Wikipedia)</li>
+          <li><span class="server-badge" data-server="quotes">quotes</span> market hours, prices (Google Finance) and
+            history (Alpha Vantage)</li>
+          <li><span class="server-badge" data-server="broker">broker</span> the portfolio and the orders, every rule
+            enforced</li>
+        </ul>
+        <p class="small">It runs on its own while the market is open; Run now starts one at any time (orders are
+          refused while the market is closed).</p>
+      </div>
+      <p class="muted" id="runs-empty" hidden>No run yet.</p>
+      <ol class="run-list" id="run-list" aria-label="Agent runs"></ol>
+      <details class="card" id="mcp-servers">
+        <summary>The MCP servers and their tools</summary>
+        <p class="muted small">Listed live over MCP, as the agent sees them: each tool's name, description and the
+          JSON Schema of its arguments.</p>
+        <div id="server-list"></div>
+      </details>
+    </section>
+
+    <section data-view="run" aria-labelledby="run-title" hidden>
+      <button type="button" class="button quiet small" id="run-back">
+        <span data-icon="back" aria-hidden="true"></span><span>Agent</span>
+      </button>
+      <div class="view-head">
+        <h1 id="run-title">Run</h1>
+        <span class="chip" id="run-status"></span>
+      </div>
+      <p class="muted small" id="run-meta"></p>
+      <p class="notice error" id="run-error" hidden></p>
+      <ol class="step-list" id="step-list" aria-label="What happened, in order"></ol>
+    </section>
+
+    <section data-view="trades" aria-labelledby="trades-title" hidden>
+      <div class="view-head">
+        <h1 id="trades-title">Transactions</h1>
+      </div>
+      <p class="muted small">Every virtual transaction, kept: when, which stock, its price then, buy or sell, the
+        shares, the amount, and the cash left after it.</p>
+      <p class="muted" id="trades-empty" hidden>No transaction yet.</p>
+      <div class="table-wrap">
+        <table class="data-table" id="trades-table" hidden>
+          <thead>
+            <tr><th scope="col">Time</th><th scope="col">Stock</th><th scope="col">Type</th>
+              <th scope="col" class="number">Shares</th><th scope="col" class="number">Price</th>
+              <th scope="col" class="number">Amount</th><th scope="col" class="number">Cash after</th>
+              <th scope="col">Reason</th></tr>
+          </thead>
+          <tbody id="trades-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section data-view="settings" class="narrow" aria-labelledby="settings-title" hidden>
+      <h1 id="settings-title">Language models</h1>
+      <section class="card" aria-labelledby="llm-connections-title">
+        <div class="view-head">
+          <h2 id="llm-connections-title">Connections</h2>
+          <button type="button" class="button small" id="llm-add">
+            <span data-icon="plus" aria-hidden="true"></span><span>Add a connection</span>
+          </button>
+        </div>
+        <p class="muted small">The agent thinks with a language model: Claude in the cloud, or any OpenAI-compatible
+          endpoint that supports tool calls, such as a vLLM server on your own machine. The light says whether each
+          one answers now. Keys are stored encrypted and never shown again.</p>
+        <p class="muted" id="llm-empty" hidden>No connection yet: the agent is off until one is added and chosen below.</p>
+        <ul class="connection-list" id="llm-connection-list" aria-label="Language model connections"></ul>
+      </section>
+      <section class="card" aria-labelledby="llm-routing-title">
+        <h2 id="llm-routing-title">Which connection trades</h2>
+        <form id="llm-routing-form">
+          <label for="llm-route-agent">The model the agent runs on</label>
+          <select id="llm-route-agent" name="agent"></select>
+          <button type="submit" class="button primary" id="llm-routing-save">Save</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <dialog class="modal" id="modal" aria-labelledby="modal-title">
+    <form class="modal-frame" id="modal-form" novalidate>
+      <h2 id="modal-title"></h2>
+      <div class="modal-body" id="modal-body"></div>
+      <p class="modal-error" id="modal-error" role="alert" hidden></p>
+      <div class="modal-actions" id="modal-actions"></div>
+    </form>
+  </dialog>
+</body>
+</html>

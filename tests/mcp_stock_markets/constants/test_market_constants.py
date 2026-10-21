@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import dataclasses
+
+from mcp_stock_markets.constants.market_constants import MarketConstants
+from tests.conftest import is_dataclass
+
+
+def test_class() -> None:
+    tested = MarketConstants
+    fields = {
+        "timezone": "str",
+        "open_time": "str",
+        "close_time": "str",
+        "early_close_time": "str",
+        "holidays": "tuple[str, ...]",
+        "early_closes": "tuple[str, ...]",
+        "quote_cache_seconds": "int",
+        "quote_max_age_seconds": "int",
+        "price_places": "str",
+        "money_places": "str",
+        "currency": "str",
+        "google_finance_url": "str",
+        "google_finance_query": "str",
+        "google_data_marker": "str",
+        "google_data_start": "str",
+        "google_pair_index": "int",
+        "google_currency_index": "int",
+        "google_price_index": "int",
+        "google_updated_index": "int",
+        "google_trade_time_index": "int",
+        "google_entry_min_length": "int",
+        "browser_user_agent": "str",
+        "alpha_vantage_url": "str",
+        "alpha_vantage_quote_function": "str",
+        "alpha_vantage_daily_function": "str",
+        "alpha_vantage_spacing_seconds": "float",
+        "history_max_days": "int",
+        "history_default_days": "int",
+        "sp500_url": "str",
+        "sp500_table_id": "str",
+        "wikipedia_user_agent": "str",
+        "sp500_refresh_hours": "int",
+        "sp500_min_companies": "int",
+        "exchange_nyse": "str",
+        "exchange_nasdaq": "str",
+        "nasdaq_link_marker": "str",
+        "search_max_results": "int",
+        "http_timeout_seconds": "float",
+        "history_needs_key": "str",
+        "sp500_unavailable": "str",
+    }
+    assert is_dataclass(tested, fields)
+
+
+def test_values() -> None:
+    tested = MarketConstants
+    result = dataclasses.asdict(tested)
+    expected = {
+        "timezone": "America/New_York",
+        "open_time": "09:30",
+        "close_time": "16:00",
+        "early_close_time": "13:00",
+        "holidays": (
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25",
+            "2027-01-01",
+            "2027-01-18",
+            "2027-02-15",
+            "2027-03-26",
+            "2027-05-31",
+            "2027-06-18",
+            "2027-07-05",
+            "2027-09-06",
+            "2027-11-25",
+            "2027-12-24",
+        ),
+        "early_closes": ("2026-11-27", "2026-12-24", "2027-11-26"),
+        "quote_cache_seconds": 60,
+        "quote_max_age_seconds": 900,
+        "price_places": "0.0001",
+        "money_places": "0.01",
+        "currency": "USD",
+        "google_finance_url": "https://www.google.com/finance/quote/",
+        "google_finance_query": "?hl=en",
+        "google_data_marker": "AF_initDataCallback({key: '",
+        "google_data_start": "data:",
+        "google_pair_index": 1,
+        "google_currency_index": 4,
+        "google_price_index": 5,
+        "google_updated_index": 11,
+        "google_trade_time_index": 17,
+        "google_entry_min_length": 18,
+        "browser_user_agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+        ),
+        "alpha_vantage_url": "https://www.alphavantage.co/query",
+        "alpha_vantage_quote_function": "GLOBAL_QUOTE",
+        "alpha_vantage_daily_function": "TIME_SERIES_DAILY",
+        "alpha_vantage_spacing_seconds": 1.2,
+        "history_max_days": 100,
+        "history_default_days": 20,
+        "sp500_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+        "sp500_table_id": "constituents",
+        "wikipedia_user_agent": "mcp-stock-markets/0.1 (a demo of MCP; https://github.com/dbajet/mcp-stock-markets)",
+        "sp500_refresh_hours": 24,
+        "sp500_min_companies": 450,
+        "exchange_nyse": "NYSE",
+        "exchange_nasdaq": "NASDAQ",
+        "nasdaq_link_marker": "nasdaq.com",
+        "search_max_results": 25,
+        "http_timeout_seconds": 15.0,
+        "history_needs_key": "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).",
+        "sp500_unavailable": "The S&P 500 list could not be read.",
+    }
+    assert result == expected

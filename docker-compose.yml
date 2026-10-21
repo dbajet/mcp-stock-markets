@@ -1,0 +1,115 @@
+# Blue/green: two identical app services; the host nginx points at exactly one.
+x-app: &mcp_stock_markets-app
+  build:
+    context: .
+    args:
+      BUILD_TIME: ${BUILD_TIME:-dev}
+      APP_VERSION: ${APP_VERSION:-dev}
+      APP_COMMIT: ${APP_COMMIT:-dev}
+  env_file: .env
+  environment:
+    # Inside the compose network the database is the service on its own port;
+    # the DB_PORT of .env is the host's loopback port, for tools on the host.
+    DATABASE_URL: postgresql://${DB_USER:-user_mcp_stock_markets}:${DB_PASSWORD:?set DB_PASSWORD in .env}@mcp_stock_markets-db:5432/${DB_NAME:-db_mcp_stock_markets}
+    # The agent reaches the MCP servers on the container's own port, never through nginx.
+    MCP_BASE_URL: http://127.0.0.1:8000
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  # One runaway app must not starve a shared host — tune per app. FastAPI, the
+  # three MCP servers and the agent's client fit in ~150 MB; the rest is headroom
+  # for a long agent run's conversation. Both colors run at once during a deploy.
+  mem_limit: 512m
+  pids_limit: 256
+  # In-flight requests finish before the old color dies.
+  stop_grace_period: 30s
+  depends_on:
+    mcp_stock_markets-db:
+      condition: service_healthy
+
+services:
+  mcp_stock_markets-app-blue:
+    <<: *mcp_stock_markets-app
+    container_name: mcp_stock_markets-app-blue
+    ports:
+      # Loopback only: the host nginx is the sole ingress — nothing can bypass it
+      # to spoof X-Real-IP against the app port.
+      - "127.0.0.1:${APP_PORT_BLUE:-8150}:8000"
+
+  mcp_stock_markets-app-green:
+    <<: *mcp_stock_markets-app
+    container_name: mcp_stock_markets-app-green
+    ports:
+      - "127.0.0.1:${APP_PORT_GREEN:-8151}:8000"
+
+  mcp_stock_markets-db:
+    image: postgres:16-alpine
+    container_name: mcp_stock_markets-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-db_mcp_stock_markets}
+      POSTGRES_USER: ${DB_USER:-user_mcp_stock_markets}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - mcp_stock_markets_db:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_PORT:-5550}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user_mcp_stock_markets}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    # The same hardening as the app; the entrypoint drops from root to postgres itself.
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
+    # Lets PostgreSQL finish a clean shutdown checkpoint.
+    stop_grace_period: 60s
+
+  mcp_stock_markets-backup:
+    build:
+      context: ./deploy
+      dockerfile: backup.Dockerfile
+    container_name: mcp_stock_markets-backup
+    # Backup credentials live in a separate file only this sidecar receives; the app
+    # containers never see them.
+    env_file: .env.backup
+    depends_on:
+      mcp_stock_markets-db:
+        condition: service_healthy
+    volumes:
+      - mcp_stock_markets_backups:/backups
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 128
+    # backup.Dockerfile runs it as `postgres`, not root.
+    # A failed run retries hourly instead of sleeping a whole interval.
+    # $$ defers the expansion to the container, where env_file supplies the value;
+    # a single $ would be resolved by Compose from .env, which does not carry it.
+    command:
+      - bash
+      - -c
+      - |
+        while true; do
+          if bash /backup/backup.sh; then
+            sleep $${BACKUP_INTERVAL_SECONDS:-86400}
+          else
+            echo "backup failed — retrying in an hour" >&2
+            sleep 3600
+          fi
+        done
+    # A live loop is not a working backup: unhealthy once the last success is older
+    # than one interval plus two hourly retries (deploy-prod.sh warns on it). The
+    # alert that reaches a person is BACKUP_HEARTBEAT_URL's monitor (.env.backup).
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(( $$(date +%s) - $$(cat /backups/last-success) )) -lt $$(( $${BACKUP_INTERVAL_SECONDS:-86400} + 7200 )) ]"]
+      interval: 10m
+      timeout: 10s
+      start_period: 30m
+    restart: unless-stopped
+
+volumes:
+  mcp_stock_markets_db:
+  mcp_stock_markets_backups:

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Read the code, nothing more: CI never writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mcp_stock_markets_test
+          POSTGRES_USER: mcp_stock_markets
+          POSTGRES_PASSWORD: mcp_stock_markets
+        ports:
+          - "55432:5432"
+        options: >-
+          --health-cmd "pg_isready -U mcp_stock_markets"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.21"        # the uv of the Dockerfile and of uv.lock
+          python-version: "3.12"   # the requires-python baseline, tested explicitly
+      # --locked fails when uv.lock no longer matches pyproject.toml (--frozen would
+      # not, and uv run would then re-lock): CI tests exactly what Docker installs.
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy .
+      - run: uv run pytest
+        env:
+          TEST_DATABASE_URL: postgresql://mcp_stock_markets:mcp_stock_markets@127.0.0.1:55432/mcp_stock_markets_test

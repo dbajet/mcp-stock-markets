@@ -1,0 +1,83 @@
+[project]
+name = "mcp_stock_markets"
+version = "0.1.0"
+description = "A trading agent that reads the market and places virtual orders through MCP servers"
+requires-python = ">=3.12"
+dependencies = [
+    # Exact pins only (==). Every entry must be justified — stdlib first.
+    # The HTTP shell: routes, request models, the ASGI server.
+    "fastapi==0.141.1",
+    "pydantic==2.13.5",
+    "uvicorn==0.53.0",
+    # The database, raw SQL and nothing between it and the schema. `binary`
+    # ships libpq in the wheel, so the runtime image needs no compiler.
+    "psycopg[binary]==3.3.6",
+    # Seals the owner's email and the language models' keys at rest.
+    # Authenticated symmetric encryption is not a thing to hand-roll;
+    # Fernet is its smallest honest surface.
+    "cryptography==50.0.1",
+    # Claude, when a Claude connection is chosen in Settings. Anthropic's own
+    # SDK rather than a hand-rolled call: its typed errors drive the connection
+    # light, and the request surface (effort, refusals and their fallback,
+    # thinking blocks handed back between tool calls) moves with the API.
+    "anthropic==1.15.0",
+    # The Model Context Protocol, both sides: the three MCP servers this app
+    # mounts and the client its agent talks to them with. The point of the
+    # demo is to show the protocol as specified, so its reference
+    # implementation rather than a hand-rolled JSON-RPC: sessions, the
+    # Streamable HTTP transport and tool schemas follow the spec as it moves.
+    "mcp==2.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy==1.17.1",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "pytest-xdist==3.8.0",      # the suite on every core
+    "ruff==0.12.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]
+addopts = "-n auto --cov=mcp_stock_markets --cov-report=term-missing --cov-fail-under=100"
+markers = ["database: runs against the scratch PostgreSQL, from empty tables"]
+filterwarnings = [
+    "error",
+    # Third-party deprecations silenced one by one, each with a reason:
+    # "ignore:<message>:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["mcp_stock_markets"]
+core = "sysmon"                 # sys.monitoring: line coverage at a fraction of the cost
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"        # Matches the requires-python compatibility baseline.
+# The package lives under app/, and tests/ is imported by name: both are this
+# project's own imports, grouped last.
+src = ["app", "."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "W", "Q", "B", "TID252"]
+ignore = [
+    "E501",                     # the formatter owns line width
+    "B008",                     # FastAPI Depends() in parameter declarations
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"         # Matches the requires-python compatibility baseline.
+strict = true
+mypy_path = "app"
+packages = ["mcp_stock_markets"]
+exclude = "^tests/"             # tests stay fully annotated by convention
