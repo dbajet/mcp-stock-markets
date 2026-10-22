@@ -28,7 +28,8 @@ const RUN_LABELS = {
 const TRIGGER_LABELS = { schedule: "Scheduled", manual: "Run now" };
 const SOURCE_LABELS = { google_finance: "Google Finance", alpha_vantage: "Alpha Vantage" };
 const STEP_LABELS = { thinking: "Thinking", model: "The model" };
-const CHART = { width: 640, height: 220, padding: 24, left: 76 };
+// labelGap: the least vertical distance between two axis labels (12 px text).
+const CHART = { width: 640, height: 220, padding: 24, left: 76, labelGap: 16 };
 
 // The one module-scope mutable object.
 const state = {
@@ -478,9 +479,15 @@ function renderChart(history) {
     return node;
   };
   shape("line", { x1: CHART.left, x2: CHART.width - CHART.padding, y1: y(start), y2: y(start), class: "chart-base" });
-  shape("text", { x: CHART.left - 8, y: y(start) + 4, class: "chart-label end" }).textContent = money(start);
-  shape("text", { x: CHART.left - 8, y: y(high) + 4, class: "chart-label end" }).textContent = money(high);
-  shape("text", { x: CHART.left - 8, y: y(low) + 4, class: "chart-label end" }).textContent = money(low);
+  // The budget's label first; the top and bottom ones only where they do not
+  // overlap a label already drawn.
+  const labelled = [];
+  [start, high, low].forEach((value) => {
+    if (labelled.every((other) => Math.abs(y(other) - y(value)) >= CHART.labelGap)) {
+      shape("text", { x: CHART.left - 8, y: y(value) + 4, class: "chart-label end" }).textContent = money(value);
+      labelled.push(value);
+    }
+  });
   shape("polyline", { points: values.map((value, index) => `${x(index)},${y(value)}`).join(" "), class: `chart-line ${trend(last - start)}` });
   values.forEach((value, index) => {
     const dot = shape("circle", { cx: x(index), cy: y(value), r: 3, class: "chart-dot" });
