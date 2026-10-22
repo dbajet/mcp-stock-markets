@@ -18,7 +18,8 @@ class Database:
     """The schema, its migrations, and the connections that run them.
 
     Raw SQL through psycopg and nothing in between. Each thread of the
-    request pool keeps one connection of its own. Migrations are
+    request pool keeps one connection of its own, closed once the thread
+    has ended (the pool's threads come and go). Migrations are
     numbered, handwritten and additive: blue and green share this database
     for the length of a deploy, so nothing is renamed or dropped in the
     release that stops using it."""
@@ -38,7 +39,9 @@ class Database:
         # The connection and the open transaction of each thread: requests are
         # served on a pool of threads, and each one's transaction is its own.
         self._local = threading.local()
-        self._opened: list[psycopg.Connection[DictRow]] = []
+        # Every connection opened, with the thread it belongs to: a thread
+        # that ends leaves its connection behind, closed by the next opening.
+        self._opened: list[tuple[threading.Thread, psycopg.Connection[DictRow]]] = []
         self._opened_lock = threading.Lock()
 
     @classmethod
@@ -332,7 +335,7 @@ class Database:
 
     def closed(self) -> None:
         with self._opened_lock:
-            for connection in self._opened:
+            for _, connection in self._opened:
                 connection.close()
             self._opened = []
 
@@ -356,7 +359,17 @@ class Database:
         )
         self._local.connection = result
         with self._opened_lock:
-            self._opened.append(result)
+            self._opened = self._living() + [(threading.current_thread(), result)]
+        return result
+
+    def _living(self) -> list[tuple[threading.Thread, psycopg.Connection[DictRow]]]:
+        """The connections of the threads still running, once those of the
+        threads that ended are closed: nothing else would ever close them.
+        Called with the list's lock held."""
+        result = [(thread, connection) for thread, connection in self._opened if thread.is_alive()]
+        for thread, connection in self._opened:
+            if not thread.is_alive():
+                connection.close()
         return result
 
     def _forget_connection(self) -> None:
@@ -365,5 +378,5 @@ class Database:
             return
         current.close()
         with self._opened_lock:
-            self._opened = [connection for connection in self._opened if connection is not current]
+            self._opened = [(thread, connection) for thread, connection in self._opened if connection is not current]
         self._local.connection = None

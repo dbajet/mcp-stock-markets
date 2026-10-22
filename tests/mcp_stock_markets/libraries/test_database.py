@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import threading
 from unittest.mock import call, patch
 
 import psycopg
@@ -317,6 +318,39 @@ def test__connection__unreachable() -> None:
         )
     ]
     assert mock_connect.mock_calls == exp_calls
+
+
+@pytest.mark.database
+def test__connection__a_finished_thread_s_connection_is_closed() -> None:
+    tested = helper_scratch()
+    opened: list[psycopg.Connection[psycopg.rows.DictRow]] = []
+    try:
+        worker = threading.Thread(target=lambda: opened.append(tested._connection()))
+        worker.start()
+        worker.join()
+        mine = tested._connection()
+        result = (opened[0].closed, mine.closed, tested._opened)
+    finally:
+        tested.closed()
+    expected = (True, False, [(threading.current_thread(), mine)])
+    assert result == expected
+
+
+@pytest.mark.database
+def test__living() -> None:
+    tested = helper_scratch()
+    try:
+        mine = tested._connection()
+        ended = threading.Thread(target=lambda: None)
+        ended.start()
+        ended.join()
+        orphan = psycopg.connect(os.environ["TEST_DATABASE_URL"])
+        tested._opened.append((ended, orphan))
+        result = (tested._living(), orphan.closed, mine.closed)
+    finally:
+        tested.closed()
+    expected = ([(threading.current_thread(), mine)], True, False)
+    assert result == expected
 
 
 @pytest.mark.database
