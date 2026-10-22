@@ -97,8 +97,8 @@ def test_loaded__defaults_for_a_laptop(caplog: pytest.LogCaptureFixture) -> None
         smtp_password="",
         email_from="",
         bootstrap_admin_email="",
-        starting_budget=Decimal("500.00"),
-        max_companies=5,
+        starting_budget=Decimal("5000.00"),
+        max_companies=10,
         alpha_vantage_key="",
         agent_interval_minutes=30,
         mcp_base_url="http://127.0.0.1:8150",
@@ -290,8 +290,8 @@ def test__smtp_port__not_a_number() -> None:
 @pytest.mark.parametrize(
     "environment, expected",
     [
-        pytest.param({}, Decimal("500.00"), id="default"),
-        pytest.param({"STARTING_BUDGET": "  "}, Decimal("500.00"), id="blank"),
+        pytest.param({}, Decimal("5000.00"), id="default"),
+        pytest.param({"STARTING_BUDGET": "  "}, Decimal("5000.00"), id="blank"),
         pytest.param({"STARTING_BUDGET": "750"}, Decimal("750.00"), id="whole-dollars"),
         pytest.param({"STARTING_BUDGET": "123.456"}, Decimal("123.46"), id="to-the-cent"),
         pytest.param({"STARTING_BUDGET": "0.01"}, Decimal("0.01"), id="one-cent"),

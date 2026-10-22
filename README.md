@@ -1,7 +1,7 @@
 # MCP Stock Markets
 
 A demonstration of the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). An AI agent manages a
-virtual portfolio of S&P 500 stocks — $500 to start with, no real money — and it can do nothing but call the tools
+virtual portfolio of S&P 500 stocks — $5,000 to start with, no real money — and it can do nothing but call the tools
 of three MCP servers. Every run is recorded step by step: what the model said, each tool it called, with the
 arguments it sent and the answer it got.
 
@@ -46,7 +46,7 @@ sell, the shares, the amount and the cash left after it — and the run that pla
 
 - **One user**: the address in `BOOTSTRAP_ADMIN_EMAIL` signs in with an emailed link. Any other account is
   disabled at startup. The portfolio is theirs, created at the first start with `STARTING_BUDGET`.
-- **Market**: the owner picks up to `MAX_COMPANIES` (5) S&P 500 companies: the only ones the agent may buy.
+- **Market**: the owner picks up to `MAX_COMPANIES` (10) S&P 500 companies: the only ones the agent may buy.
 - **Agent**: runs every `AGENT_INTERVAL_MINUTES` (30) while the market is open, and on *Run now*. Each run's
   transcript is shown, every MCP call with its server, arguments, answer and duration. *The MCP servers and
   their tools* lists what the servers advertise, asked live over MCP.

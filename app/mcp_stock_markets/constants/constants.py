@@ -34,8 +34,8 @@ class _Constants:
     # Where the agent reaches the MCP servers: this very process, on its own
     # port. Compose sets the container's (8000); uvicorn on a laptop, its --port.
     default_mcp_base_url: str = "http://127.0.0.1:8150"
-    default_starting_budget: str = "500"
-    default_max_companies: int = 5
+    default_starting_budget: str = "5000"
+    default_max_companies: int = 10
     default_agent_interval_minutes: int = 30
     # A day: an interval longer than that is a typo.
     max_agent_interval_minutes: int = 1440
