@@ -138,8 +138,8 @@ class Database:
                         fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
                     )""",
                     "CREATE INDEX IF NOT EXISTS quotes_latest ON quotes (symbol, fetched_at DESC)",
-                    # Alpha Vantage's daily bars, and the day each symbol was last
-                    # fetched: once a day, inside a free key's 25 requests.
+                    # The daily bars (Alpaca's; Alpha Vantage's before 2026-10-28), and
+                    # the day each symbol was last fetched: once a day per symbol.
                     """
                     CREATE TABLE IF NOT EXISTS daily_bars (
                         symbol TEXT NOT NULL,

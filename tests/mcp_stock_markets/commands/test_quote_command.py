@@ -9,7 +9,7 @@ import pytest
 
 from mcp_stock_markets.commands.quote_command import QuoteCommand
 from mcp_stock_markets.constants.quote_source import QuoteSource
-from mcp_stock_markets.libraries.alpha_vantage_box import AlphaVantageBox
+from mcp_stock_markets.libraries.alpaca_box import AlpacaBox
 from mcp_stock_markets.libraries.company_store import CompanyStore
 from mcp_stock_markets.libraries.database import Database
 from mcp_stock_markets.libraries.google_finance_box import GoogleFinanceBox
@@ -26,13 +26,13 @@ NOW = datetime(2026, 10, 21, 15, 0, tzinfo=UTC)
 NEW_YORK = timezone(timedelta(hours=-4))
 
 
-def helper_parts() -> tuple[QuoteStore, CompanyStore, GoogleFinanceBox, AlphaVantageBox, MarketClock]:
+def helper_parts() -> tuple[QuoteStore, CompanyStore, GoogleFinanceBox, AlpacaBox, MarketClock]:
     database = Database("postgresql://u:p@h/d")
     return (
         QuoteStore(database),
         CompanyStore(database),
         GoogleFinanceBox(WebBox()),
-        AlphaVantageBox(WebBox(), "av-key"),
+        AlpacaBox(WebBox(), "the-id", "the-secret"),
         MarketClock(),
     )
 
@@ -85,10 +85,10 @@ def helper_bar(day: date) -> DailyBar:
 
 
 def test___init__() -> None:
-    store, companies, google, alpha_vantage, clock = helper_parts()
-    tested = QuoteCommand(store, companies, google, alpha_vantage, clock)
-    result = (tested._store, tested._companies, tested._google, tested._alpha_vantage, tested._clock)
-    expected = (store, companies, google, alpha_vantage, clock)
+    store, companies, google, alpaca, clock = helper_parts()
+    tested = QuoteCommand(store, companies, google, alpaca, clock)
+    result = (tested._store, tested._companies, tested._google, tested._alpaca, tested._clock)
+    expected = (store, companies, google, alpaca, clock)
     assert result == expected
 
 
@@ -122,17 +122,16 @@ def test_quote__cached_within_the_minute() -> None:
 
 
 @pytest.mark.parametrize(
-    "cached, exp_ask_alpha_vantage",
+    "cached",
     [
-        pytest.param(None, True, id="never-read"),
+        pytest.param(None, id="never-read"),
         pytest.param(
             helper_quote(datetime(2026, 10, 21, 14, 59, tzinfo=UTC), QuoteSource.GOOGLE_FINANCE),
-            False,
             id="a-minute-old",
         ),
     ],
 )
-def test_quote(cached: Quote | None, exp_ask_alpha_vantage: bool) -> None:
+def test_quote(cached: Quote | None) -> None:
     tested = helper_instance()
     fresh = helper_quote(NOW, QuoteSource.GOOGLE_FINANCE)
     with (
@@ -145,7 +144,7 @@ def test_quote(cached: Quote | None, exp_ask_alpha_vantage: bool) -> None:
     assert result == expected
     exp_calls = [call("AAPL")]
     assert mock_latest.mock_calls == exp_calls
-    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC), exp_ask_alpha_vantage)]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_fetched.mock_calls == exp_calls
     exp_calls = [call(helper_quote(datetime(2026, 10, 21, 15, 0, tzinfo=UTC), QuoteSource.GOOGLE_FINANCE))]
     assert mock_stored.mock_calls == exp_calls
@@ -166,7 +165,7 @@ def test_quote__the_last_price_when_no_new_one_comes() -> None:
     assert result == expected
     exp_calls = [call("AAPL")]
     assert mock_latest.mock_calls == exp_calls
-    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC), False)]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_fetched.mock_calls == exp_calls
     exp_calls = []
     assert mock_stored.mock_calls == exp_calls
@@ -188,7 +187,7 @@ def test_quote__never_priced_and_no_price_comes() -> None:
     assert result == expected
     exp_calls = [call("AAPL")]
     assert mock_latest.mock_calls == exp_calls
-    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC), True)]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_fetched.mock_calls == exp_calls
     exp_calls = []
     assert mock_stored.mock_calls == exp_calls
@@ -208,10 +207,10 @@ def test_fetched(company: Company | None, exp_exchange: str) -> None:
         patch.object(
             GoogleFinanceBox, "quote", side_effect=[helper_quote(NOW, QuoteSource.GOOGLE_FINANCE)]
         ) as mock_google,
-        patch.object(AlphaVantageBox, "is_configured", side_effect=[]) as mock_is_configured,
-        patch.object(AlphaVantageBox, "quote", side_effect=[]) as mock_alpha_vantage,
+        patch.object(AlpacaBox, "is_configured", side_effect=[]) as mock_is_configured,
+        patch.object(AlpacaBox, "quote", side_effect=[]) as mock_alpaca,
     ):
-        result = tested.fetched("AAPL", NOW, True)
+        result = tested.fetched("AAPL", NOW)
     expected = helper_quote(datetime(2026, 10, 21, 15, 0, tzinfo=UTC), QuoteSource.GOOGLE_FINANCE)
     assert result == expected
     exp_calls = [call("AAPL")]
@@ -220,10 +219,10 @@ def test_fetched(company: Company | None, exp_exchange: str) -> None:
     assert mock_google.mock_calls == exp_calls
     exp_calls = []
     assert mock_is_configured.mock_calls == exp_calls
-    assert mock_alpha_vantage.mock_calls == exp_calls
+    assert mock_alpaca.mock_calls == exp_calls
 
 
-def test_fetched__alpha_vantage_when_google_fails(caplog: pytest.LogCaptureFixture) -> None:
+def test_fetched__alpaca_when_google_fails(caplog: pytest.LogCaptureFixture) -> None:
     tested = helper_instance()
     with (
         caplog.at_level(logging.WARNING, logger="mcp_stock_markets"),
@@ -231,13 +230,11 @@ def test_fetched__alpha_vantage_when_google_fails(caplog: pytest.LogCaptureFixtu
         patch.object(
             GoogleFinanceBox, "quote", side_effect=[AppException(502, "www.google.com did not answer.")]
         ) as mock_google,
-        patch.object(AlphaVantageBox, "is_configured", side_effect=[True]) as mock_is_configured,
-        patch.object(
-            AlphaVantageBox, "quote", side_effect=[helper_quote(NOW, QuoteSource.ALPHA_VANTAGE)]
-        ) as mock_alpha_vantage,
+        patch.object(AlpacaBox, "is_configured", side_effect=[True]) as mock_is_configured,
+        patch.object(AlpacaBox, "quote", side_effect=[helper_quote(NOW, QuoteSource.ALPACA)]) as mock_alpaca,
     ):
-        result = tested.fetched("AAPL", NOW, True)
-    expected = helper_quote(datetime(2026, 10, 21, 15, 0, tzinfo=UTC), QuoteSource.ALPHA_VANTAGE)
+        result = tested.fetched("AAPL", NOW)
+    expected = helper_quote(datetime(2026, 10, 21, 15, 0, tzinfo=UTC), QuoteSource.ALPACA)
     assert result == expected
     exp_messages = ["[QUOTES] Google for AAPL: www.google.com did not answer."]
     assert caplog.messages == exp_messages
@@ -248,10 +245,10 @@ def test_fetched__alpha_vantage_when_google_fails(caplog: pytest.LogCaptureFixtu
     exp_calls = [call()]
     assert mock_is_configured.mock_calls == exp_calls
     exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
-    assert mock_alpha_vantage.mock_calls == exp_calls
+    assert mock_alpaca.mock_calls == exp_calls
 
 
-def test_fetched__google_fails_without_alpha_vantage(caplog: pytest.LogCaptureFixture) -> None:
+def test_fetched__google_fails_without_alpaca(caplog: pytest.LogCaptureFixture) -> None:
     tested = helper_instance()
     with (
         caplog.at_level(logging.WARNING, logger="mcp_stock_markets"),
@@ -259,11 +256,11 @@ def test_fetched__google_fails_without_alpha_vantage(caplog: pytest.LogCaptureFi
         patch.object(
             GoogleFinanceBox, "quote", side_effect=[AppException(502, "www.google.com did not answer.")]
         ) as mock_google,
-        patch.object(AlphaVantageBox, "is_configured", side_effect=[False]) as mock_is_configured,
-        patch.object(AlphaVantageBox, "quote", side_effect=[]) as mock_alpha_vantage,
+        patch.object(AlpacaBox, "is_configured", side_effect=[False]) as mock_is_configured,
+        patch.object(AlpacaBox, "quote", side_effect=[]) as mock_alpaca,
         pytest.raises(AppException) as exc_info,
     ):
-        tested.fetched("AAPL", NOW, True)
+        tested.fetched("AAPL", NOW)
     result = (exc_info.value.status_code, exc_info.value.message)
     expected = (502, "No price could be fetched for AAPL right now.")
     assert result == expected
@@ -276,34 +273,7 @@ def test_fetched__google_fails_without_alpha_vantage(caplog: pytest.LogCaptureFi
     exp_calls = [call()]
     assert mock_is_configured.mock_calls == exp_calls
     exp_calls = []
-    assert mock_alpha_vantage.mock_calls == exp_calls
-
-
-def test_fetched__google_fails_alpha_vantage_not_asked(caplog: pytest.LogCaptureFixture) -> None:
-    tested = helper_instance()
-    with (
-        caplog.at_level(logging.WARNING, logger="mcp_stock_markets"),
-        patch.object(CompanyStore, "company", side_effect=[helper_company("NASDAQ")]) as mock_company,
-        patch.object(
-            GoogleFinanceBox, "quote", side_effect=[AppException(502, "www.google.com did not answer.")]
-        ) as mock_google,
-        patch.object(AlphaVantageBox, "is_configured", side_effect=[]) as mock_is_configured,
-        patch.object(AlphaVantageBox, "quote", side_effect=[]) as mock_alpha_vantage,
-        pytest.raises(AppException) as exc_info,
-    ):
-        tested.fetched("AAPL", NOW, False)
-    result = (exc_info.value.status_code, exc_info.value.message)
-    expected = (502, "No price could be fetched for AAPL right now.")
-    assert result == expected
-    exp_messages = ["[QUOTES] Google for AAPL: www.google.com did not answer."]
-    assert caplog.messages == exp_messages
-    exp_calls = [call("AAPL")]
-    assert mock_company.mock_calls == exp_calls
-    exp_calls = [call("AAPL", "NASDAQ", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
-    assert mock_google.mock_calls == exp_calls
-    exp_calls = []
-    assert mock_is_configured.mock_calls == exp_calls
-    assert mock_alpha_vantage.mock_calls == exp_calls
+    assert mock_alpaca.mock_calls == exp_calls
 
 
 def test_fetched__both_fail(caplog: pytest.LogCaptureFixture) -> None:
@@ -314,19 +284,19 @@ def test_fetched__both_fail(caplog: pytest.LogCaptureFixture) -> None:
         patch.object(
             GoogleFinanceBox, "quote", side_effect=[AppException(502, "www.google.com did not answer.")]
         ) as mock_google,
-        patch.object(AlphaVantageBox, "is_configured", side_effect=[True]) as mock_is_configured,
+        patch.object(AlpacaBox, "is_configured", side_effect=[True]) as mock_is_configured,
         patch.object(
-            AlphaVantageBox, "quote", side_effect=[AppException(502, "www.alphavantage.co answered HTTP 500.")]
-        ) as mock_alpha_vantage,
+            AlpacaBox, "quote", side_effect=[AppException(502, "data.alpaca.markets answered HTTP 500.")]
+        ) as mock_alpaca,
         pytest.raises(AppException) as exc_info,
     ):
-        tested.fetched("AAPL", NOW, True)
+        tested.fetched("AAPL", NOW)
     result = (exc_info.value.status_code, exc_info.value.message)
     expected = (502, "No price could be fetched for AAPL right now.")
     assert result == expected
     exp_messages = [
         "[QUOTES] Google for AAPL: www.google.com did not answer.",
-        "[QUOTES] Alpha Vantage for AAPL: www.alphavantage.co answered HTTP 500.",
+        "[QUOTES] Alpaca for AAPL: data.alpaca.markets answered HTTP 500.",
     ]
     assert caplog.messages == exp_messages
     exp_calls = [call("AAPL")]
@@ -336,7 +306,7 @@ def test_fetched__both_fail(caplog: pytest.LogCaptureFixture) -> None:
     exp_calls = [call()]
     assert mock_is_configured.mock_calls == exp_calls
     exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
-    assert mock_alpha_vantage.mock_calls == exp_calls
+    assert mock_alpaca.mock_calls == exp_calls
 
 
 @pytest.mark.parametrize(
@@ -373,7 +343,7 @@ def test_history__fetched_today_already(days: int, exp_days: int) -> None:
     with (
         patch.object(MarketClock, "status", side_effect=[status]) as mock_status,
         patch.object(QuoteStore, "fetched_on", side_effect=[date(2026, 10, 20)]) as mock_fetched_on,
-        patch.object(AlphaVantageBox, "daily", side_effect=[]) as mock_daily,
+        patch.object(AlpacaBox, "daily", side_effect=[]) as mock_daily,
         patch.object(QuoteStore, "bars_replaced", side_effect=[]) as mock_bars_replaced,
         patch.object(QuoteStore, "bars", side_effect=[[helper_bar(date(2026, 10, 20))]]) as mock_bars,
     ):
@@ -405,7 +375,7 @@ def test_history(fetched_on: date | None) -> None:
     with (
         patch.object(MarketClock, "status", side_effect=[status]) as mock_status,
         patch.object(QuoteStore, "fetched_on", side_effect=[fetched_on]) as mock_fetched_on,
-        patch.object(AlphaVantageBox, "daily", side_effect=[bars]) as mock_daily,
+        patch.object(AlpacaBox, "daily", side_effect=[bars]) as mock_daily,
         patch.object(QuoteStore, "bars_replaced", side_effect=[None]) as mock_bars_replaced,
         patch.object(QuoteStore, "bars", side_effect=[bars]) as mock_bars,
     ):
@@ -416,7 +386,7 @@ def test_history(fetched_on: date | None) -> None:
     assert mock_status.mock_calls == exp_calls
     exp_calls = [call("AAPL")]
     assert mock_fetched_on.mock_calls == exp_calls
-    exp_calls = [call("AAPL", date(2026, 10, 21))]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_daily.mock_calls == exp_calls
     exp_calls = [
         call("AAPL", [helper_bar(date(2026, 10, 19)), helper_bar(date(2026, 10, 20))], date(2026, 10, 21)),
@@ -434,7 +404,7 @@ def test_history__stale_bars_serve_when_the_fetch_fails(caplog: pytest.LogCaptur
         patch.object(MarketClock, "status", side_effect=[status]) as mock_status,
         patch.object(QuoteStore, "fetched_on", side_effect=[date(2026, 10, 20), date(2026, 10, 20)]) as mock_fetched_on,
         patch.object(
-            AlphaVantageBox, "daily", side_effect=[AppException(502, "www.alphavantage.co did not answer.")]
+            AlpacaBox, "daily", side_effect=[AppException(502, "data.alpaca.markets did not answer.")]
         ) as mock_daily,
         patch.object(QuoteStore, "bars_replaced", side_effect=[]) as mock_bars_replaced,
         patch.object(QuoteStore, "bars", side_effect=[[helper_bar(date(2026, 10, 19))]]) as mock_bars,
@@ -442,13 +412,13 @@ def test_history__stale_bars_serve_when_the_fetch_fails(caplog: pytest.LogCaptur
         result = tested.history("AAPL", 20, NOW)
     expected = [helper_bar(date(2026, 10, 19))]
     assert result == expected
-    exp_messages = ["[HISTORY] AAPL: www.alphavantage.co did not answer."]
+    exp_messages = ["[HISTORY] AAPL: data.alpaca.markets did not answer."]
     assert caplog.messages == exp_messages
     exp_calls = [call(datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_status.mock_calls == exp_calls
     exp_calls = [call("AAPL"), call("AAPL")]
     assert mock_fetched_on.mock_calls == exp_calls
-    exp_calls = [call("AAPL", date(2026, 10, 21))]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_daily.mock_calls == exp_calls
     exp_calls = []
     assert mock_bars_replaced.mock_calls == exp_calls
@@ -464,9 +434,9 @@ def test_history__never_any_bars(caplog: pytest.LogCaptureFixture) -> None:
         patch.object(MarketClock, "status", side_effect=[status]) as mock_status,
         patch.object(QuoteStore, "fetched_on", side_effect=[None, None]) as mock_fetched_on,
         patch.object(
-            AlphaVantageBox,
+            AlpacaBox,
             "daily",
-            side_effect=[AppException(503, "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).")],
+            side_effect=[AppException(503, "Daily history needs an Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY).")],
         ) as mock_daily,
         patch.object(QuoteStore, "bars_replaced", side_effect=[]) as mock_bars_replaced,
         patch.object(QuoteStore, "bars", side_effect=[]) as mock_bars,
@@ -474,15 +444,15 @@ def test_history__never_any_bars(caplog: pytest.LogCaptureFixture) -> None:
     ):
         tested.history("AAPL", 20, NOW)
     result = (exc_info.value.status_code, exc_info.value.message)
-    expected = (503, "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).")
+    expected = (503, "Daily history needs an Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY).")
     assert result == expected
-    exp_messages = ["[HISTORY] AAPL: Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY)."]
+    exp_messages = ["[HISTORY] AAPL: Daily history needs an Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY)."]
     assert caplog.messages == exp_messages
     exp_calls = [call(datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_status.mock_calls == exp_calls
     exp_calls = [call("AAPL"), call("AAPL")]
     assert mock_fetched_on.mock_calls == exp_calls
-    exp_calls = [call("AAPL", date(2026, 10, 21))]
+    exp_calls = [call("AAPL", datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
     assert mock_daily.mock_calls == exp_calls
     exp_calls = []
     assert mock_bars_replaced.mock_calls == exp_calls

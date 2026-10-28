@@ -36,8 +36,10 @@ class Settings(NamedTuple):
     starting_budget: Decimal
     # How many companies the owner may put in the agent's market.
     max_companies: int
-    # Alpha Vantage: daily history and the fallback quote; empty disables both.
-    alpha_vantage_key: str
+    # Alpaca's market data: daily history and the fallback quote; either one
+    # empty disables both.
+    alpaca_key_id: str
+    alpaca_secret_key: str
     # How often the agent runs while the market is open.
     agent_interval_minutes: int
     # Where the agent reaches the MCP servers: this process's own port.
@@ -72,7 +74,8 @@ class Settings(NamedTuple):
             "bootstrap_admin_email": self.bootstrap_admin_email,
             "starting_budget": str(self.starting_budget),
             "max_companies": self.max_companies,
-            "alpha_vantage_key": self.alpha_vantage_key,
+            "alpaca_key_id": self.alpaca_key_id,
+            "alpaca_secret_key": self.alpaca_secret_key,
             "agent_interval_minutes": self.agent_interval_minutes,
             "mcp_base_url": self.mcp_base_url,
             "mcp_token": self.mcp_token,
@@ -96,7 +99,8 @@ class Settings(NamedTuple):
             bootstrap_admin_email=str(data["bootstrap_admin_email"]),
             starting_budget=Wire.money(data["starting_budget"]),
             max_companies=int(data["max_companies"]),
-            alpha_vantage_key=str(data["alpha_vantage_key"]),
+            alpaca_key_id=str(data["alpaca_key_id"]),
+            alpaca_secret_key=str(data["alpaca_secret_key"]),
             agent_interval_minutes=int(data["agent_interval_minutes"]),
             mcp_base_url=str(data["mcp_base_url"]),
             mcp_token=str(data["mcp_token"]),

@@ -36,7 +36,7 @@ from mcp_stock_markets.handlers.session_guard import SessionGuard
 from mcp_stock_markets.handlers.sp500_mcp_server import Sp500McpServer
 from mcp_stock_markets.libraries.agent_run_store import AgentRunStore
 from mcp_stock_markets.libraries.alerter import Alerter
-from mcp_stock_markets.libraries.alpha_vantage_box import AlphaVantageBox
+from mcp_stock_markets.libraries.alpaca_box import AlpacaBox
 from mcp_stock_markets.libraries.blind_index import BlindIndex
 from mcp_stock_markets.libraries.claude_box import ClaudeBox
 from mcp_stock_markets.libraries.company_store import CompanyStore
@@ -93,7 +93,7 @@ class AppFactory:
             QuoteStore(database),
             company_store,
             GoogleFinanceBox(web),
-            AlphaVantageBox(web, settings.alpha_vantage_key),
+            AlpacaBox(web, settings.alpaca_key_id, settings.alpaca_secret_key),
             MarketClock(),
         )
         broker = BrokerCommand(settings, database, PortfolioStore(database), company_store, quotes)

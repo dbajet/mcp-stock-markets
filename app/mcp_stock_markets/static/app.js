@@ -29,7 +29,7 @@ const RUN_LABELS = {
   failed: "Failed",
 };
 const TRIGGER_LABELS = { schedule: "Scheduled", manual: "Run now" };
-const SOURCE_LABELS = { google_finance: "Google Finance", alpha_vantage: "Alpha Vantage" };
+const SOURCE_LABELS = { google_finance: "Google Finance", alpaca: "Alpaca (IEX)", alpha_vantage: "Alpha Vantage" };
 const STEP_LABELS = { thinking: "Thinking", model: "The model" };
 // labelGap: the least vertical distance between two axis labels (12 px text).
 const CHART = { width: 640, height: 220, padding: 24, left: 76, labelGap: 16 };

@@ -14,7 +14,7 @@ from mcp_stock_markets.handlers.mcp_server_handler import McpServerHandler
 
 class QuotesMcpServer(McpServerHandler):
     """The `quotes` MCP server: the market's hours, live prices (Google
-    Finance, Alpha Vantage as a fallback) and daily history (Alpha Vantage)."""
+    Finance, Alpaca as a fallback) and daily history (Alpaca)."""
 
     def __init__(self, token: str, quotes: QuoteCommand) -> None:
         super().__init__(token)

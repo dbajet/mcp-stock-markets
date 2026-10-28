@@ -44,7 +44,8 @@ def test_loaded() -> None:
             "BOOTSTRAP_ADMIN_EMAIL": " Ada@Example.COM ",
             "STARTING_BUDGET": " 1250.5 ",
             "MAX_COMPANIES": "8",
-            "ALPHA_VANTAGE_API_KEY": " av-key ",
+            "ALPACA_KEY_ID": " alpaca-key-id ",
+            "ALPACA_SECRET_KEY": " alpaca-secret ",
             "AGENT_INTERVAL_MINUTES": "15",
             "MCP_BASE_URL": "http://127.0.0.1:8000/",
             "MCP_TOKEN": " mcp-token ",
@@ -67,7 +68,8 @@ def test_loaded() -> None:
         bootstrap_admin_email="ada@example.com",
         starting_budget=Decimal("1250.50"),
         max_companies=8,
-        alpha_vantage_key="av-key",
+        alpaca_key_id="alpaca-key-id",
+        alpaca_secret_key="alpaca-secret",
         agent_interval_minutes=15,
         mcp_base_url="http://127.0.0.1:8000",
         mcp_token="mcp-token",
@@ -99,7 +101,8 @@ def test_loaded__defaults_for_a_laptop(caplog: pytest.LogCaptureFixture) -> None
         bootstrap_admin_email="",
         starting_budget=Decimal("5000.00"),
         max_companies=10,
-        alpha_vantage_key="",
+        alpaca_key_id="",
+        alpaca_secret_key="",
         agent_interval_minutes=30,
         mcp_base_url="http://127.0.0.1:8150",
         mcp_token="fresh-token",
@@ -107,7 +110,8 @@ def test_loaded__defaults_for_a_laptop(caplog: pytest.LogCaptureFixture) -> None
     assert result == expected
     exp_messages = [
         "[SETTINGS] DATA_ENCRYPTION_KEY is not set: generated for this process",
-        "[SETTINGS] ALPHA_VANTAGE_API_KEY is not set: no daily history, no fallback quote",
+        "[SETTINGS] ALPACA_KEY_ID is not set: no daily history, no fallback quote",
+        "[SETTINGS] ALPACA_SECRET_KEY is not set: no daily history, no fallback quote",
     ]
     assert [record.getMessage() for record in caplog.records] == exp_messages
     exp_calls = [call(32)]
@@ -375,11 +379,11 @@ def test__bounded__not_a_whole_number() -> None:
     assert result == expected
 
 
-def test__alpha_vantage_key(caplog: pytest.LogCaptureFixture) -> None:
-    tested = SettingsLoader({"ALPHA_VANTAGE_API_KEY": " av-key "})
+def test__optional(caplog: pytest.LogCaptureFixture) -> None:
+    tested = SettingsLoader({"ALPACA_KEY_ID": " alpaca-key-id "})
     with caplog.at_level(logging.WARNING, logger="mcp_stock_markets"):
-        result = tested._alpha_vantage_key()
-    expected = "av-key"
+        result = tested._optional("ALPACA_KEY_ID", "no daily history, no fallback quote")
+    expected = "alpaca-key-id"
     assert result == expected
     exp_messages: list[str] = []
     assert [record.getMessage() for record in caplog.records] == exp_messages
@@ -389,18 +393,16 @@ def test__alpha_vantage_key(caplog: pytest.LogCaptureFixture) -> None:
     "environment",
     [
         pytest.param({}, id="missing"),
-        pytest.param({"ALPHA_VANTAGE_API_KEY": "CHANGE_ME_alpha_vantage"}, id="placeholder"),
+        pytest.param({"ALPACA_KEY_ID": "CHANGE_ME_alpaca_key_id"}, id="placeholder"),
     ],
 )
-def test__alpha_vantage_key__unset_is_empty_and_warned(
-    environment: dict[str, str], caplog: pytest.LogCaptureFixture
-) -> None:
+def test__optional__unset_is_empty_and_warned(environment: dict[str, str], caplog: pytest.LogCaptureFixture) -> None:
     tested = SettingsLoader(environment)
     with caplog.at_level(logging.WARNING, logger="mcp_stock_markets"):
-        result = tested._alpha_vantage_key()
+        result = tested._optional("ALPACA_KEY_ID", "no daily history, no fallback quote")
     expected = ""
     assert result == expected
-    exp_messages = ["[SETTINGS] ALPHA_VANTAGE_API_KEY is not set: no daily history, no fallback quote"]
+    exp_messages = ["[SETTINGS] ALPACA_KEY_ID is not set: no daily history, no fallback quote"]
     assert [record.getMessage() for record in caplog.records] == exp_messages
 
 

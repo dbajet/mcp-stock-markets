@@ -32,11 +32,12 @@ def test_class() -> None:
         "google_trade_time_index": "int",
         "google_entry_min_length": "int",
         "browser_user_agent": "str",
-        "alpha_vantage_url": "str",
-        "alpha_vantage_quote_function": "str",
-        "alpha_vantage_daily_function": "str",
-        "alpha_vantage_spacing_seconds": "float",
-        "redacted_key": "str",
+        "alpaca_data_url": "str",
+        "alpaca_trade_feed": "str",
+        "alpaca_bars_feed": "str",
+        "alpaca_bars_delay_minutes": "int",
+        "alpaca_history_calendar_days": "int",
+        "alpaca_bars_limit": "int",
         "history_max_days": "int",
         "history_default_days": "int",
         "sp500_url": "str",
@@ -50,7 +51,6 @@ def test_class() -> None:
         "search_max_results": "int",
         "http_timeout_seconds": "float",
         "history_needs_key": "str",
-        "alpha_vantage_paused": "str",
         "sp500_unavailable": "str",
     }
     assert is_dataclass(tested, fields)
@@ -106,11 +106,12 @@ def test_values() -> None:
         "browser_user_agent": (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
         ),
-        "alpha_vantage_url": "https://www.alphavantage.co/query",
-        "alpha_vantage_quote_function": "GLOBAL_QUOTE",
-        "alpha_vantage_daily_function": "TIME_SERIES_DAILY",
-        "alpha_vantage_spacing_seconds": 1.2,
-        "redacted_key": "[key]",
+        "alpaca_data_url": "https://data.alpaca.markets",
+        "alpaca_trade_feed": "iex",
+        "alpaca_bars_feed": "sip",
+        "alpaca_bars_delay_minutes": 16,
+        "alpaca_history_calendar_days": 160,
+        "alpaca_bars_limit": 1000,
         "history_max_days": 100,
         "history_default_days": 20,
         "sp500_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
@@ -123,10 +124,7 @@ def test_values() -> None:
         "nasdaq_link_marker": "nasdaq.com",
         "search_max_results": 25,
         "http_timeout_seconds": 15.0,
-        "history_needs_key": "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).",
-        "alpha_vantage_paused": (
-            "Alpha Vantage refused a request earlier today (a free key allows 25 a day): it is asked again tomorrow."
-        ),
+        "history_needs_key": "Daily history needs an Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY).",
         "sp500_unavailable": "The S&P 500 list could not be read.",
     }
     assert result == expected

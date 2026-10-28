@@ -13,7 +13,7 @@ class _McpConstants:
     run_header: str = "x-agent-run"
     authorization_header: str = "authorization"
     bearer_prefix: str = "Bearer "
-    # One MCP request: the slowest tool fetches a page from Google or Alpha Vantage.
+    # One MCP request: the slowest tool fetches a page from Google or Alpaca.
     call_timeout_seconds: float = 30.0
     server_version: str = "1.0"
 

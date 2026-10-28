@@ -18,14 +18,14 @@ def test_text() -> None:
     with fake.installed():
         result = (
             tested.text(URL, {"User-Agent": "mcp-stock-markets/0.1"}),
-            tested.text("https://www.alphavantage.co/query?function=GLOBAL_QUOTE", {}),
+            tested.text("https://data.alpaca.markets/v2/stocks/AAPL/trades/latest?feed=iex", {}),
         )
     # Read as UTF-8; a byte that is not UTF-8 is replaced, never fatal.
     expected = ("<p>S&amp;P 500 — 503 companies</p>", "café �")
     assert result == expected
     exp_requests = [
         (URL, "GET", "mcp-stock-markets/0.1", 15.0),
-        ("https://www.alphavantage.co/query?function=GLOBAL_QUOTE", "GET", None, 15.0),
+        ("https://data.alpaca.markets/v2/stocks/AAPL/trades/latest?feed=iex", "GET", None, 15.0),
     ]
     assert fake.requests == exp_requests
 

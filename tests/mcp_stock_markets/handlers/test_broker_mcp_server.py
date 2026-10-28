@@ -19,7 +19,7 @@ from mcp_stock_markets.constants.quote_source import QuoteSource
 from mcp_stock_markets.constants.trade_side import TradeSide
 from mcp_stock_markets.handlers.broker_mcp_server import BrokerMcpServer
 from mcp_stock_markets.handlers.mcp_server_handler import McpServerHandler
-from mcp_stock_markets.libraries.alpha_vantage_box import AlphaVantageBox
+from mcp_stock_markets.libraries.alpaca_box import AlpacaBox
 from mcp_stock_markets.libraries.company_store import CompanyStore
 from mcp_stock_markets.libraries.database import Database
 from mcp_stock_markets.libraries.google_finance_box import GoogleFinanceBox
@@ -56,7 +56,8 @@ def helper_settings() -> Settings:
         bootstrap_admin_email="",
         starting_budget=Decimal("500.00"),
         max_companies=5,
-        alpha_vantage_key="",
+        alpaca_key_id="",
+        alpaca_secret_key="",
         agent_interval_minutes=30,
         mcp_base_url="http://127.0.0.1:8000",
         mcp_token="mcp-token",
@@ -69,7 +70,7 @@ def helper_parts() -> tuple[BrokerCommand, CompanyCommand]:
     web = WebBox()
     company_store = CompanyStore(database)
     quotes = QuoteCommand(
-        QuoteStore(database), company_store, GoogleFinanceBox(web), AlphaVantageBox(web, ""), MarketClock()
+        QuoteStore(database), company_store, GoogleFinanceBox(web), AlpacaBox(web, "", ""), MarketClock()
     )
     broker = BrokerCommand(settings, database, PortfolioStore(database), company_store, quotes)
     return broker, CompanyCommand(settings, company_store, WikipediaBox(WebBox()))

@@ -20,7 +20,7 @@ from mcp_stock_markets.constants.run_trigger import RunTrigger
 from mcp_stock_markets.constants.step_kind import StepKind
 from mcp_stock_markets.libraries.agent_run_store import AgentRunStore
 from mcp_stock_markets.libraries.alerter import Alerter
-from mcp_stock_markets.libraries.alpha_vantage_box import AlphaVantageBox
+from mcp_stock_markets.libraries.alpaca_box import AlpacaBox
 from mcp_stock_markets.libraries.claude_box import ClaudeBox
 from mcp_stock_markets.libraries.company_store import CompanyStore
 from mcp_stock_markets.libraries.database import Database
@@ -72,7 +72,8 @@ def helper_settings() -> Settings:
         bootstrap_admin_email="owner@example.com",
         starting_budget=Decimal("500.00"),
         max_companies=5,
-        alpha_vantage_key="",
+        alpaca_key_id="",
+        alpaca_secret_key="",
         agent_interval_minutes=30,
         mcp_base_url="http://127.0.0.1:8000",
         mcp_token="mcp-token",
@@ -87,7 +88,7 @@ def helper_parts() -> tuple[Database, AgentRunStore, LlmGateway, McpClientBox, Q
         QuoteStore(database),
         companies,
         GoogleFinanceBox(WebBox()),
-        AlphaVantageBox(WebBox(), ""),
+        AlpacaBox(WebBox(), "", ""),
         MarketClock(),
     )
     return (

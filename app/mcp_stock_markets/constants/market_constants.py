@@ -79,21 +79,19 @@ class _MarketConstants:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
     )
 
-    # --- Alpha Vantage: the fallback price, and the daily history -----------------
-    alpha_vantage_url: str = "https://www.alphavantage.co/query"
-    alpha_vantage_quote_function: str = "GLOBAL_QUOTE"
-    alpha_vantage_daily_function: str = "TIME_SERIES_DAILY"
-    # Free keys allow one request a second (and 25 a day): requests are spaced.
-    alpha_vantage_spacing_seconds: float = 1.2
-    # What stands for the key where Alpha Vantage's refusal quotes it.
-    redacted_key: str = "[key]"
-    # A day's bars are fetched once per symbol per day: ten companies, ten
-    # requests, well inside a free key's daily 25.
+    # --- Alpaca (free Basic plan): the fallback price, and the daily history --------
+    alpaca_data_url: str = "https://data.alpaca.markets"
+    # The plan's live trades are IEX's only; its every-exchange (SIP) data
+    # must be at least 15 minutes old, which daily bars always are.
+    alpaca_trade_feed: str = "iex"
+    alpaca_bars_feed: str = "sip"
+    alpaca_bars_delay_minutes: int = 16
+    # Enough calendar days for the hundred trading days history serves.
+    alpaca_history_calendar_days: int = 160
+    alpaca_bars_limit: int = 1000
+    # A day's bars are fetched once per symbol per day.
     history_max_days: int = 100
     history_default_days: int = 20
-    # An Alpha Vantage quote carries a date, not a time: it is read as that
-    # day's close, so the broker's freshness rule refuses it while the market
-    # is open — it informs the agent, it never prices an order.
 
     # --- the S&P 500 list ------------------------------------------------------------
     sp500_url: str = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
@@ -114,10 +112,7 @@ class _MarketConstants:
     http_timeout_seconds: float = 15.0
 
     # --- messages --------------------------------------------------------------------
-    history_needs_key: str = "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY)."
-    alpha_vantage_paused: str = (
-        "Alpha Vantage refused a request earlier today (a free key allows 25 a day): it is asked again tomorrow."
-    )
+    history_needs_key: str = "Daily history needs an Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY)."
     sp500_unavailable: str = "The S&P 500 list could not be read."
 
 

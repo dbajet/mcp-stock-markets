@@ -13,7 +13,7 @@ Code follows [coding_recipe](https://github.com/dbajet/coding_recipe).
                  ┌──────────────── this app (one FastAPI process) ─────────────────┐
                  │                                                                  │
  language model ◀┼─ agent ──── MCP client ──HTTP──▶ /mcp/sp500/   ─ Wikipedia's S&P 500 list
- (Claude, or any │  (AgentCommand)  (McpClientBox)  /mcp/quotes/  ─ Google Finance, Alpha Vantage
+ (Claude, or any │  (AgentCommand)  (McpClientBox)  /mcp/quotes/  ─ Google Finance, Alpaca
   OpenAI-compat.)│                                  /mcp/broker/  ─ the portfolio, the orders
                  └──────────────────────────────────────────────────────────────────┘
 ```
@@ -24,7 +24,8 @@ Code follows [coding_recipe](https://github.com/dbajet/coding_recipe).
      Wikipedia's [List of S&P 500 companies](https://en.wikipedia.org/wiki/List_of_S%26P_500_companies).
    - **quotes** — `get_market_status`, `get_quote`, `get_daily_history`: the US market's hours (the NYSE
      calendar), a stock's latest price from [Google Finance](https://www.google.com/finance/), and its daily bars
-     from [Alpha Vantage](https://www.alphavantage.co/), which is also the fallback when Google fails.
+     from [Alpaca](https://alpaca.markets/)'s free market data, whose latest IEX trade is also the fallback when
+     Google fails.
    - **broker** — `get_portfolio`, `get_transactions`, `buy`, `sell`: the virtual account.
 
    A tool is a Python method: the SDK reads its signature for the JSON Schema of its arguments and its docstring
@@ -69,7 +70,7 @@ BOOTSTRAP_ADMIN_EMAIL=you@example.com \
 
 Open <http://localhost:8150> and ask for a sign-in link: without `SMTP_HOST` it is written to the log. The S&P 500
 list is read at the first start. Choose companies in *Market*, add a language model in *Settings*, then *Run now*.
-An Alpha Vantage key (free) adds the daily history; without one the agent is told the history is unavailable.
+An Alpaca key pair (free) adds the daily history; without one the agent is told the history is unavailable.
 
 To point another MCP client at a laptop's servers (the
 [MCP Inspector](https://github.com/modelcontextprotocol/inspector), a desktop assistant), set `MCP_TOKEN` in
@@ -92,7 +93,7 @@ uv run pytest                  # tests, 100% coverage required
 ```
 
 CI runs the same four on every push; a deploy refuses a commit that did not pass. The tests never reach Google,
-Wikipedia, Alpha Vantage or a language model: each has a fake in `tests/support/`. The MCP servers and client
+Wikipedia, Alpaca or a language model: each has a fake in `tests/support/`. The MCP servers and client
 are tested for real, in process.
 
 ## Code layout
@@ -102,7 +103,7 @@ app/mcp_stock_markets/
 ├── main.py        # AppFactory: builds and wires everything, mounts the MCP servers
 ├── handlers/      # HTTP routes, and the three MCP servers (*McpServer) with their token guard
 ├── commands/      # what the app does: the broker, quotes, companies, the agent, the scheduler's routine…
-├── libraries/     # database stores, outside services (*Box: Google, Wikipedia, Alpha Vantage, LLMs, MCP client)
+├── libraries/     # database stores, outside services (*Box: Google, Wikipedia, Alpaca, LLMs, MCP client)
 ├── structures/    # immutable data types
 ├── constants/     # settings that are not configuration: market hours, the agent's instructions…
 └── static/        # the web app: plain HTML, CSS and JavaScript
@@ -116,8 +117,8 @@ One VM with Docker Compose, nginx and certbot. The app listens on the loopback o
 Two copies run in turn (blue and green), so a release starts beside the old one and takes over only once healthy.
 
 1. Clone the repository on the server (`/opt/mcp_stock_markets`). Create `.env` from `.env.example`
-   (`APP_ENV=production`, your domain, a fresh `DATA_ENCRYPTION_KEY`, the owner's address, the Alpha Vantage
-   key) and `.env.backup` from `.env.backup.example`, both `chmod 600`. **Keep a copy of the encryption key and
+   (`APP_ENV=production`, your domain, a fresh `DATA_ENCRYPTION_KEY`, the owner's address, the Alpaca
+   key pair) and `.env.backup` from `.env.backup.example`, both `chmod 600`. **Keep a copy of the encryption key and
    the backup private key off the server**: a restored backup needs both.
 2. Install `deploy/nginx-mcp_stock_markets.conf` as the site, with your domain, and run
    `certbot --nginx -d <domain>`. Give the deploy user that one file, and sudo rights for `nginx -t` and
@@ -161,9 +162,10 @@ data can be lost.
 ## Limitations
 
 - **Google Finance has no API.** The price is read from its quote page, whose embedded data may change shape at
-  any time; the app then falls back to Alpha Vantage, whose free quote is the latest trading day's — too old to
-  price an order while the market is open, so orders wait for Google to answer again.
-- **Alpha Vantage's free key** allows 25 requests a day: each company's history is fetched once a day.
+  any time; the app then falls back to Alpaca, and when neither answers, to the last price read — which the
+  broker refuses once it is more than 15 minutes old.
+- **Alpaca's free plan** carries live trades from IEX only, one exchange among many: for a quiet stock its last
+  trade may be minutes old. Each company's daily history (every exchange) is fetched once a day.
 - **The holiday calendar** is written into `MarketConstants` through 2027. A holiday it does not know reads as
   a trading day — and the broker still refuses, since the latest trade is a day old.
 - The agent's decisions are a language model's: this is a demonstration of MCP, not investment advice.

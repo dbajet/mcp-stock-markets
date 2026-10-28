@@ -12,7 +12,7 @@ from mcp_stock_markets.structures.app_exception import AppException
 
 class WebBox:
     """A page or an API answer read over HTTPS, with a timeout, as text: the
-    one road to Google Finance, Wikipedia and Alpha Vantage. Hand-rolled
+    one road to Google Finance, Wikipedia and Alpaca. Hand-rolled
     with urllib: three GET requests need no HTTP library."""
 
     def text(self, url: str, headers: dict[str, str]) -> str:

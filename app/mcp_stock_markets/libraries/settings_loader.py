@@ -52,7 +52,8 @@ class SettingsLoader:
             max_companies=self._bounded(
                 Constants.env_max_companies, Constants.default_max_companies, Constants.max_max_companies
             ),
-            alpha_vantage_key=self._alpha_vantage_key(),
+            alpaca_key_id=self._optional(Constants.env_alpaca_key_id, "no daily history, no fallback quote"),
+            alpaca_secret_key=self._optional(Constants.env_alpaca_secret_key, "no daily history, no fallback quote"),
             agent_interval_minutes=self._bounded(
                 Constants.env_agent_interval_minutes,
                 Constants.default_agent_interval_minutes,
@@ -141,12 +142,12 @@ class SettingsLoader:
             raise AppException(500, f"{name} must be from 1 to {maximum}")
         return result
 
-    def _alpha_vantage_key(self) -> str:
-        """Optional: without it the agent has no daily history and no
-        fallback price, and is told so by the tools."""
-        result = self._read(Constants.env_alpha_vantage_key)
+    def _optional(self, name: str, without: str) -> str:
+        """A value the app runs without, saying what is missing then: the
+        Alpaca key pair, whose absence the tools tell the agent too."""
+        result = self._read(name)
         if not result or self.has_placeholder(result):
-            self._warned(Constants.env_alpha_vantage_key, "is not set: no daily history, no fallback quote")
+            self._warned(name, f"is not set: {without}")
             return ""
         return result
 

@@ -15,7 +15,7 @@ from mcp_stock_markets.constants.mcp_server_name import McpServerName
 from mcp_stock_markets.constants.quote_source import QuoteSource
 from mcp_stock_markets.handlers.mcp_server_handler import McpServerHandler
 from mcp_stock_markets.handlers.quotes_mcp_server import QuotesMcpServer
-from mcp_stock_markets.libraries.alpha_vantage_box import AlphaVantageBox
+from mcp_stock_markets.libraries.alpaca_box import AlpacaBox
 from mcp_stock_markets.libraries.company_store import CompanyStore
 from mcp_stock_markets.libraries.database import Database
 from mcp_stock_markets.libraries.google_finance_box import GoogleFinanceBox
@@ -35,7 +35,7 @@ def helper_quotes() -> QuoteCommand:
     database = Database("postgresql://u:p@h/d")
     web = WebBox()
     return QuoteCommand(
-        QuoteStore(database), CompanyStore(database), GoogleFinanceBox(web), AlphaVantageBox(web, ""), MarketClock()
+        QuoteStore(database), CompanyStore(database), GoogleFinanceBox(web), AlpacaBox(web, "", ""), MarketClock()
     )
 
 
