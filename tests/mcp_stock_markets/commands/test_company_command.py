@@ -184,6 +184,16 @@ def test_searched() -> None:
     assert mock_searched.mock_calls == exp_calls
 
 
+def test_listed() -> None:
+    tested = helper_instance()
+    with patch.object(CompanyStore, "listed", side_effect=[[helper_apple()]]) as mock_listed:
+        result = tested.listed()
+    expected = [helper_apple()]
+    assert result == expected
+    exp_calls = [call()]
+    assert mock_listed.mock_calls == exp_calls
+
+
 def test_sectors() -> None:
     tested = helper_instance()
     with patch.object(

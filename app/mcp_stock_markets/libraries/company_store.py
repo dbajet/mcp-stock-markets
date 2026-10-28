@@ -62,6 +62,11 @@ class CompanyStore:
         )
         return [Company.from_dict(row) for row in rows]
 
+    def listed(self) -> list[Company]:
+        """The whole index, by symbol: the market page filters it itself."""
+        rows = self._database.rows(f"SELECT {self._COLUMNS} FROM companies ORDER BY symbol", ())
+        return [Company.from_dict(row) for row in rows]
+
     def sectors(self) -> list[dict[str, Any]]:
         rows = self._database.rows(
             "SELECT sector, count(*) AS companies FROM companies GROUP BY sector ORDER BY sector", ()

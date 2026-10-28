@@ -201,6 +201,15 @@ def test_searched(query: str, sector: str, limit: int, expected: list[Company]) 
 
 
 @pytest.mark.database
+def test_listed() -> None:
+    database = helper_database()
+    tested = helper_store(database)
+    result = [company.symbol for company in tested.listed()]
+    expected = ["AAPL", "AOS", "BRK.B", "MAA", "MMM"]
+    assert result == expected
+
+
+@pytest.mark.database
 def test_sectors() -> None:
     database = helper_database()
     tested = CompanyStore(database)

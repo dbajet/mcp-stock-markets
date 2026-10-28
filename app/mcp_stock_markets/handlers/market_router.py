@@ -47,10 +47,12 @@ class MarketRouter:
         except AppException as error:
             return company | {"quote": None, "quote_error": error.message}
 
-    def companies(self, request: Request, query: str = "", sector: str = "") -> dict[str, Any]:
+    def companies(self, request: Request) -> dict[str, Any]:
+        """The whole index, about 500 rows, read once by the page, which
+        filters it by name and sector without asking again."""
         self._guard.user(request)
         return {
-            "companies": [company.to_dict() for company in self._companies.searched(query, sector)],
+            "companies": [company.to_dict() for company in self._companies.listed()],
             "sectors": self._companies.sectors(),
         }
 

@@ -21,7 +21,6 @@ const LINK_PATH = "/auth/link";
 const RUN_POLL_MILLISECONDS = 5000;
 const PORTFOLIO_POLL_MILLISECONDS = 60000;
 const LIVE_VIEWS = ["portfolio", "agent", "run"];
-const SEARCH_DELAY_MILLISECONDS = 250;
 const GENERIC_ERROR = "Something went wrong. Try again.";
 const RUN_LABELS = {
   running: "Running…",
@@ -41,9 +40,9 @@ const state = {
   user: null,
   modal: null,
   pollTimer: null,
-  searchTimer: null,
   runId: null,
-  sectorsLoaded: false,
+  // The whole S&P 500, read once and filtered here; null until read.
+  companies: null,
   universe: [],
   universeFull: false,
   llm: null,
@@ -331,11 +330,11 @@ function signedOutLocally() {
   // The next person on this device sees none of the previous one's data.
   state.user = null;
   state.runId = null;
-  state.sectorsLoaded = false;
+  state.companies = null;
   state.universe = [];
   state.universeFull = false;
   state.llm = null;
-  ["#llm-connection-list", "#portfolio-stats", "#portfolio-chart", "#positions-body", "#universe-list", "#company-list",
+  ["#llm-connection-list", "#portfolio-stats", "#portfolio-chart", "#positions-body", "#universe-list", "#company-list", "#company-found",
     "#run-list", "#step-list", "#server-list", "#trades-body"].forEach((selector) => $(selector).replaceChildren());
   $("#company-query").value = "";
   $("#mcp-servers").open = false;
@@ -532,7 +531,11 @@ async function loadMarket() {
     return;
   }
   renderMarket(market);
-  await companiesSearched();
+  if (state.companies === null) {
+    await companiesLoaded();
+  } else {
+    companiesFiltered();
+  }
 }
 
 function renderMarket(market) {
@@ -566,24 +569,37 @@ function universeItem(company) {
   ]);
 }
 
-async function companiesSearched() {
-  const query = $("#company-query").value;
-  const sector = $("#company-sector").value;
+async function companiesLoaded() {
   let found;
   try {
-    found = await api(`/api/companies?${new URLSearchParams({ query, sector })}`, {});
+    found = await api("/api/companies", {});
   } catch (error) {
     failed(error);
     return;
   }
-  if (state.sectorsLoaded === false && found.sectors.length > 0) {
-    $("#company-sector").replaceChildren(
-      element("option", { value: "", text: "Every sector" }, []),
-      ...found.sectors.map((item) => element("option", { value: item.sector, text: `${item.sector} (${item.companies})` }, [])),
-    );
-    state.sectorsLoaded = true;
-  }
-  $("#company-list").replaceChildren(...found.companies.map(companyItem));
+  const sector = $("#company-sector").value;
+  $("#company-sector").replaceChildren(
+    element("option", { value: "", text: "Every sector" }, []),
+    ...found.sectors.map((item) => element("option", { value: item.sector, text: `${item.sector} (${item.companies})` }, [])),
+  );
+  // The sector chosen before a new reading stays chosen while it still exists.
+  $("#company-sector").value = found.sectors.some((item) => item.sector === sector) ? sector : "";
+  state.companies = found.companies;
+  companiesFiltered();
+}
+
+// By symbol or name, within the sector chosen; a symbol that starts with the
+// query first, then by symbol, as the agent's search_companies orders them.
+function companiesFiltered() {
+  const query = $("#company-query").value.trim().toLowerCase();
+  const sector = $("#company-sector").value;
+  const starts = (company) => company.symbol.toLowerCase().startsWith(query);
+  const found = (state.companies || [])
+    .filter((company) => sector === "" || company.sector === sector)
+    .filter((company) => company.symbol.toLowerCase().includes(query) || company.name.toLowerCase().includes(query))
+    .sort((one, other) => Number(starts(other)) - Number(starts(one)) || (one.symbol < other.symbol ? -1 : 1));
+  $("#company-found").textContent = `${found.length} of ${(state.companies || []).length} companies`;
+  $("#company-list").replaceChildren(...found.map(companyItem));
 }
 
 function companyItem(company) {
@@ -641,7 +657,7 @@ async function sp500Refreshed(event) {
     failed(error);
     return;
   }
-  state.sectorsLoaded = false;
+  state.companies = null;
   await loadMarket();
 }
 
@@ -1188,14 +1204,11 @@ function bound() {
   $("#sp500-refresh").addEventListener("click", sp500Refreshed);
   $("#company-search").addEventListener("submit", (event) => {
     event.preventDefault();
-    companiesSearched();
+    companiesFiltered();
   });
-  // Searched as the owner types, once the typing pauses.
-  $("#company-query").addEventListener("input", () => {
-    window.clearTimeout(state.searchTimer);
-    state.searchTimer = window.setTimeout(companiesSearched, SEARCH_DELAY_MILLISECONDS);
-  });
-  $("#company-sector").addEventListener("change", companiesSearched);
+  // Filtered as the owner types: the list is already here.
+  $("#company-query").addEventListener("input", companiesFiltered);
+  $("#company-sector").addEventListener("change", companiesFiltered);
   $("#modal-form").addEventListener("submit", modalSubmitted);
   $("#modal").addEventListener("close", modalClosed);
   $("#version-button").addEventListener("click", (event) => {

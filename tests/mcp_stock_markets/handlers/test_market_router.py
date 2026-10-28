@@ -256,10 +256,10 @@ def test_companies() -> None:
     sectors = [{"sector": "Information Technology", "companies": 69}]
     with (
         patch.object(SessionGuard, "user", side_effect=[helper_user()]) as mock_user,
-        patch.object(CompanyCommand, "searched", side_effect=[[helper_company("MSFT", "Microsoft")]]) as mock_searched,
+        patch.object(CompanyCommand, "listed", side_effect=[[helper_company("MSFT", "Microsoft")]]) as mock_listed,
         patch.object(CompanyCommand, "sectors", side_effect=[sectors]) as mock_sectors,
     ):
-        result = tested.companies(request, "micro", "Information Technology")
+        result = tested.companies(request)
     expected = {
         "companies": [helper_company_dict("MSFT", "Microsoft")],
         "sectors": [{"sector": "Information Technology", "companies": 69}],
@@ -267,8 +267,8 @@ def test_companies() -> None:
     assert result == expected
     exp_calls = [call(request)]
     assert mock_user.mock_calls == exp_calls
-    exp_calls = [call("micro", "Information Technology")]
-    assert mock_searched.mock_calls == exp_calls
+    exp_calls = [call()]
+    assert mock_listed.mock_calls == exp_calls
     exp_calls = [call()]
     assert mock_sectors.mock_calls == exp_calls
 
@@ -276,7 +276,7 @@ def test_companies() -> None:
 def test_companies__denied_without_a_session() -> None:
     tested = helper_tested()
     request = helper_request("GET", "/api/companies")
-    result = helper_denied(lambda req: tested.companies(req, "", ""), request)
+    result = helper_denied(tested.companies, request)
     expected = (401, "Please sign in.", [call(request)])
     assert result == expected
 

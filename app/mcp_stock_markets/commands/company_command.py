@@ -50,6 +50,11 @@ class CompanyCommand:
     def searched(self, query: str, sector: str) -> list[Company]:
         return self._store.searched(query.strip(), sector.strip(), MarketConstants.search_max_results)
 
+    def listed(self) -> list[Company]:
+        """Every member: the page has them all, where the agent's search has
+        a page of results to keep its context small."""
+        return self._store.listed()
+
     def sectors(self) -> list[dict[str, Any]]:
         return self._store.sectors()
 
