@@ -80,6 +80,7 @@ def helper_public(connection_id: int) -> dict[str, Any]:
         "kind": "claude",
         "base_url": "",
         "has_key": True,
+        "key_hint": "",
         "model": "claude-opus-5-5",
         "disable_thinking": True,
     }

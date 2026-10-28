@@ -26,13 +26,14 @@ def test_class() -> None:
 
 
 @pytest.mark.parametrize(
-    "api_key, exp_has_key",
+    "api_key, exp_has_key, exp_key_hint",
     [
-        pytest.param("secret", True, id="key"),
-        pytest.param("", False, id="no-key"),
+        pytest.param("sk-ant-api03-0123456789abcdefWXyz", True, "…WXyz", id="key"),
+        pytest.param("secret", True, "", id="a-short-key"),
+        pytest.param("", False, "", id="no-key"),
     ],
 )
-def test_public_dict(api_key: str, exp_has_key: bool) -> None:
+def test_public_dict(api_key: str, exp_has_key: bool, exp_key_hint: str) -> None:
     tested = helper_instance(api_key)
     result = tested.public_dict()
     expected = {
@@ -41,9 +42,25 @@ def test_public_dict(api_key: str, exp_has_key: bool) -> None:
         "kind": "openai",
         "base_url": "https://llm.example.com/v1",
         "has_key": exp_has_key,
+        "key_hint": exp_key_hint,
         "model": "good",
         "disable_thinking": True,
     }
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "api_key, expected",
+    [
+        pytest.param("sk-ant-api03-0123456789abcdefWXyz", "…WXyz", id="a-cloud-key"),
+        pytest.param("0123456789abcdefghij", "…ghij", id="just-long-enough"),
+        pytest.param("0123456789abcdefghi", "", id="one-too-short"),
+        pytest.param("", "", id="no-key"),
+    ],
+)
+def test_key_hint(api_key: str, expected: str) -> None:
+    tested = helper_instance(api_key)
+    result = tested.key_hint()
     assert result == expected
 
 

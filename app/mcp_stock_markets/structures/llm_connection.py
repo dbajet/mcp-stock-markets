@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, NamedTuple
 
+from mcp_stock_markets.constants.llm_constants import LlmConstants
 from mcp_stock_markets.constants.llm_kind import LlmKind
 
 
@@ -9,7 +10,7 @@ class LlmConnection(NamedTuple):
     """A language model the app can call: Claude through Anthropic's API, or
     any OpenAI-compatible endpoint (a local vLLM, a hosted provider). The key
     is opened here and never leaves the server: `public_dict` says only
-    whether there is one."""
+    whether there is one, and its last characters to tell it apart."""
 
     connection_id: int
     name: str
@@ -30,9 +31,17 @@ class LlmConnection(NamedTuple):
             "kind": self.kind.value,
             "base_url": self.base_url,
             "has_key": self.api_key != "",
+            "key_hint": self.key_hint(),
             "model": self.model,
             "disable_thinking": self.disable_thinking,
         }
+
+    def key_hint(self) -> str:
+        """The key's last characters ("…AbCd"), to know which one it is when
+        rotating it: never enough to use it. None for a short key."""
+        if len(self.api_key) < LlmConstants.key_hint_min_length:
+            return ""
+        return f"…{self.api_key[-LlmConstants.key_hint_chars :]}"
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -24,6 +24,11 @@ class _LlmConstants:
 
     # --- connections ---------------------------------------------------------------------
     max_name_chars: int = 80
+    # A key is told apart, when it is rotated, by its last characters ("…AbCd"),
+    # as the providers' consoles show it; a key shorter than the minimum (a local
+    # endpoint's placeholder) shows none, since four would be much of it.
+    key_hint_chars: int = 4
+    key_hint_min_length: int = 20
     # Anthropic's largest page: every model in one request.
     claude_model_page: int = 1000
 

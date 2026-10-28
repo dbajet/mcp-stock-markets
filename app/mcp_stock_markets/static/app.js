@@ -927,6 +927,9 @@ function connectionShown(connection) {
   const remove = element("button", { type: "button", class: "button small quiet danger-text" }, iconLabelled("trash", "Delete"));
   remove.addEventListener("click", () => connectionRemovalAsked(connection));
   const facts = [`Model: ${connection.model}`];
+  if (connection.key_hint !== "") {
+    facts.push(`Key ${connection.key_hint}`);
+  }
   if (connection.kind === "openai") {
     facts.unshift(connection.base_url);
   }
@@ -982,7 +985,8 @@ function connectionAsked(connection) {
   ]);
   const urlInput = element("input", { type: "url", name: "base_url", value: values.base_url, placeholder: "https://llm.example.com/v1" }, []);
   const urlField = element("div", { class: "kind-openai" }, field("Address of the API, ending in /v1", urlInput));
-  const keyHint = isNew || connection.has_key === false ? "API key" : "API key (leave empty to keep the stored one)";
+  const stored = !isNew && connection.key_hint !== "" ? `, ${connection.key_hint}` : "";
+  const keyHint = isNew || connection.has_key === false ? "API key" : `API key (leave empty to keep the stored one${stored})`;
   const keyInput = element("input", { type: "password", name: "api_key", autocomplete: "off" }, []);
   const thinking = element("div", { class: "kind-openai" }, [
     checkbox("Ask the model not to think first (faster; vLLM reasoning models)", "disable_thinking", values.disable_thinking),
