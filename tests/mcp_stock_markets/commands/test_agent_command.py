@@ -890,11 +890,47 @@ def test_abandoned(is_free: bool, abandoned: list[int], expected: int, exp_aband
 
 def test_runs() -> None:
     tested = helper_instance()
+    start = datetime(2026, 10, 28, 7, 0, tzinfo=UTC)
+    end = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
     with patch.object(AgentRunStore, "runs", side_effect=[[helper_run(RunStatus.COMPLETED, "Held.", "")]]) as mock_runs:
-        result = tested.runs()
+        result = tested.runs(start, end)
     expected = [helper_run(RunStatus.COMPLETED, "Held.", "")]
     assert result == expected
-    exp_calls = [call(50)]
+    exp_calls = [call(datetime(2026, 10, 28, 7, 0, tzinfo=UTC), datetime(2026, 10, 29, 7, 0, tzinfo=UTC), 1000)]
+    assert mock_runs.mock_calls == exp_calls
+
+
+@pytest.mark.parametrize(
+    "start, end, expected",
+    [
+        pytest.param(
+            datetime(2026, 10, 28, 7, 0),
+            datetime(2026, 10, 29, 7, 0, tzinfo=UTC),
+            "A date range needs a time zone, such as 2026-10-28T07:00:00Z.",
+            id="a-naive-start",
+        ),
+        pytest.param(
+            datetime(2026, 10, 28, 7, 0, tzinfo=UTC),
+            datetime(2026, 10, 29, 7, 0),
+            "A date range needs a time zone, such as 2026-10-28T07:00:00Z.",
+            id="a-naive-end",
+        ),
+        pytest.param(
+            datetime(2026, 10, 29, 7, 0, tzinfo=UTC),
+            datetime(2026, 10, 28, 7, 0, tzinfo=UTC),
+            "The range ends before it starts.",
+            id="backwards",
+        ),
+    ],
+)
+def test_runs__a_bad_range(start: datetime, end: datetime, expected: str) -> None:
+    tested = helper_instance()
+    with patch.object(AgentRunStore, "runs", side_effect=[]) as mock_runs:
+        with pytest.raises(AppException) as exc_info:
+            tested.runs(start, end)
+    result = (exc_info.value.status_code, exc_info.value.message)
+    assert result == (400, expected)
+    exp_calls = []
     assert mock_runs.mock_calls == exp_calls
 
 

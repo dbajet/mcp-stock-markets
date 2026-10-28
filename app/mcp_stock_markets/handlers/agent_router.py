@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -26,9 +27,14 @@ class AgentRouter:
         result.add_api_route("/servers", self.servers, methods=["GET"])
         return result
 
-    def runs(self, request: Request) -> dict[str, Any]:
+    def runs(self, request: Request, start: datetime, end: datetime) -> dict[str, Any]:
+        """The runs started from `start` up to `end` (ISO moments), and the most
+        a range lists, so the page can say when it shows only the latest."""
         self._guard.user(request)
-        return {"runs": [run.to_dict() for run in self._agent.runs()]}
+        return {
+            "runs": [run.to_dict() for run in self._agent.runs(start, end)],
+            "limit": AgentConstants.runs_page,
+        }
 
     def started(self, request: Request) -> dict[str, Any]:
         """Queued, not run: a run takes minutes, longer than a request may."""

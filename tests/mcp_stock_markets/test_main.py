@@ -439,7 +439,10 @@ def test_created__the_agent_trades_through_the_mcp_servers() -> None:
         client.put("/api/llm/routing", json={"agent": connection.json()["connection_id"]})
         started = client.post("/api/agent/runs")
         run = helper_until(
-            lambda: client.get("/api/agent/runs").json()["runs"],
+            # The run is stamped by the database's clock, not the frozen one.
+            lambda: client.get(
+                "/api/agent/runs", params={"start": "2000-01-01T00:00:00Z", "end": "2100-01-01T00:00:00Z"}
+            ).json()["runs"],
             lambda runs: len(runs) == 1 and runs[0]["status"] != "running",
         )
         detail = client.get(f"/api/agent/runs/{run[0]['run_id']}").json()

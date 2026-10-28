@@ -352,6 +352,7 @@ input[type="search"],
 input[type="number"],
 input[type="password"],
 input[type="url"],
+input[type="date"],
 #modal select,
 #llm-routing-form select,
 #company-sector {
@@ -929,33 +930,71 @@ input::placeholder {
   margin-top: 0.5rem;
 }
 
-.run-open {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.25rem 0.75rem;
-  width: 100%;
-  min-height: var(--tap);
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font: inherit;
-  color: inherit;
+.runs-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.75rem;
+}
+
+.runs-range > span:not(.runs-folding) {
+  flex: 1 1 9rem;
+}
+
+.runs-folding {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.run {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+}
+
+/* The title folds and unfolds its run: a click, or Enter and Space on it. */
+.run-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  min-height: var(--tap);
+  padding: 0.75rem 1rem;
   cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
 }
 
-.run-open:hover {
-  border-color: var(--accent);
+.run-head::-webkit-details-marker {
+  display: none;
 }
 
-.run-open .muted {
+.run-head:hover {
+  background: var(--surface-2);
+}
+
+.run-head .muted {
   grid-column: 2;
 }
 
-.run-summary {
+.run-preview {
   grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run[open] .run-preview {
+  display: none;
+}
+
+.run-body {
+  padding: 0 1rem 0.75rem;
+}
+
+.run-summary {
+  margin: 0 0 0.5rem;
   white-space: pre-wrap;
 }
 

@@ -41,6 +41,8 @@ const state = {
   modal: null,
   pollTimer: null,
   runId: null,
+  // The runs unfolded in the list, kept while the list is drawn again.
+  runsOpen: new Set(),
   // The whole S&P 500, read once and filtered here; null until read.
   companies: null,
   universe: [],
@@ -330,6 +332,9 @@ function signedOutLocally() {
   // The next person on this device sees none of the previous one's data.
   state.user = null;
   state.runId = null;
+  state.runsOpen = new Set();
+  $("#runs-from").value = "";
+  $("#runs-to").value = "";
   state.companies = null;
   state.universe = [];
   state.universeFull = false;
@@ -664,34 +669,81 @@ async function sp500Refreshed(event) {
 // --- the agent --------------------------------------------------------------------------
 // Its runs, each with its transcript, and the MCP servers' tools.
 
+// A day as a date input writes it, in the browser's time zone.
+function dayValue(moment) {
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`;
+}
+
+// From the first day's midnight to the midnight after the last, in the
+// owner's time zone; today when no day is chosen.
+function runsRange() {
+  const today = dayValue(new Date());
+  if ($("#runs-from").value === "") {
+    $("#runs-from").value = today;
+  }
+  if ($("#runs-to").value === "" || $("#runs-to").value < $("#runs-from").value) {
+    $("#runs-to").value = $("#runs-from").value;
+  }
+  const [fromYear, fromMonth, fromDay] = $("#runs-from").value.split("-").map(Number);
+  const [toYear, toMonth, toDay] = $("#runs-to").value.split("-").map(Number);
+  return {
+    start: new Date(fromYear, fromMonth - 1, fromDay).toISOString(),
+    end: new Date(toYear, toMonth - 1, toDay + 1).toISOString(),
+  };
+}
+
 async function loadRuns() {
   let answer;
   try {
-    answer = await api("/api/agent/runs", {});
+    answer = await api(`/api/agent/runs?${new URLSearchParams(runsRange())}`, {});
   } catch (error) {
     failed(error);
     return;
   }
   $("#runs-empty").hidden = answer.runs.length > 0;
+  $("#runs-found").textContent = answer.runs.length >= answer.limit
+    ? `The latest ${answer.limit} runs of these days.`
+    : answer.runs.length === 0 ? "" : `${answer.runs.length} ${answer.runs.length === 1 ? "run" : "runs"}.`;
   $("#run-list").replaceChildren(...answer.runs.map(runItem));
   if (state.view === "agent" && answer.runs.some((run) => run.status === "running")) {
     pollScheduled(loadRuns, RUN_POLL_MILLISECONDS);
   }
 }
 
+// Folded to its title and the summary's first line; unfolded, the whole
+// summary and the way to its transcript.
 function runItem(run) {
-  const open = element("button", { type: "button", class: "run-open" }, [
-    element("span", { class: `chip run-${run.status}`, text: RUN_LABELS[run.status] || run.status }, []),
-    element("span", { class: "run-when", text: `${momentText(run.started_at)} · ${TRIGGER_LABELS[run.trigger] || run.trigger}` }, []),
-    element("span", { class: "muted small", text: `${run.model} · ${run.turns} ${run.turns === 1 ? "round" : "rounds"}` }, []),
-    element("span", { class: "run-summary", text: run.summary || run.error || "" }, []),
-  ]);
-  open.addEventListener("click", () => {
+  const text = run.summary || run.error || "";
+  const transcript = element("button", { type: "button", class: "button small" }, iconLabelled("list", "Transcript"));
+  transcript.addEventListener("click", () => {
     state.runId = run.run_id;
     store(STORAGE_RUN, String(run.run_id));
     opened("run");
   });
-  return element("li", {}, [open]);
+  const folded = element("details", { class: "run", open: state.runsOpen.has(run.run_id) }, [
+    element("summary", { class: "run-head" }, [
+      element("span", { class: `chip run-${run.status}`, text: RUN_LABELS[run.status] || run.status }, []),
+      element("span", { class: "run-when", text: `${momentText(run.started_at)} · ${TRIGGER_LABELS[run.trigger] || run.trigger}` }, []),
+      element("span", { class: "muted small", text: `${run.model} · ${run.turns} ${run.turns === 1 ? "round" : "rounds"}` }, []),
+      element("span", { class: "run-preview muted", text: text.split("\n")[0] }, []),
+    ]),
+    element("div", { class: "run-body" }, [element("p", { class: "run-summary", text }, []), transcript]),
+  ]);
+  folded.addEventListener("toggle", () => {
+    if (folded.open) {
+      state.runsOpen.add(run.run_id);
+    } else {
+      state.runsOpen.delete(run.run_id);
+    }
+  });
+  return element("li", { "data-run": run.run_id }, [folded]);
+}
+
+function runsFolded(open) {
+  $$("#run-list details.run").forEach((folded) => {
+    folded.open = open;
+  });
 }
 
 async function agentStarted(event) {
@@ -1188,6 +1240,14 @@ function bound() {
     button.addEventListener("click", () => opened(button.dataset.nav));
   });
   $("#sign-out").addEventListener("click", signOut);
+  $("#runs-from").addEventListener("change", loadRuns);
+  $("#runs-to").addEventListener("change", loadRuns);
+  $("#runs-range").addEventListener("submit", (event) => {
+    event.preventDefault();
+    loadRuns();
+  });
+  $("#runs-expand").addEventListener("click", () => runsFolded(true));
+  $("#runs-collapse").addEventListener("click", () => runsFolded(false));
   document.addEventListener("visibilitychange", visibilityChanged);
   $("#link-form").addEventListener("submit", linkRequested);
   $("#link-confirm").addEventListener("click", linkConfirmed);

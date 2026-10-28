@@ -164,7 +164,22 @@
         <p class="small">It runs on its own while the market is open; Run now starts one at any time (orders are
           refused while the market is closed).</p>
       </div>
-      <p class="muted" id="runs-empty" hidden>No run yet.</p>
+      <form class="runs-range" id="runs-range" aria-label="Runs to list">
+        <span>
+          <label for="runs-from">From</label>
+          <input id="runs-from" type="date" required>
+        </span>
+        <span>
+          <label for="runs-to">To</label>
+          <input id="runs-to" type="date" required>
+        </span>
+        <span class="runs-folding">
+          <button type="button" class="button small quiet" id="runs-expand">Expand all</button>
+          <button type="button" class="button small quiet" id="runs-collapse">Collapse all</button>
+        </span>
+      </form>
+      <p class="muted small" id="runs-found" aria-live="polite"></p>
+      <p class="muted" id="runs-empty" hidden>No run on these days.</p>
       <ol class="run-list" id="run-list" aria-label="Agent runs"></ol>
       <details class="card" id="mcp-servers">
         <summary>The MCP servers and their tools</summary>

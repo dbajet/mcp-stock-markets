@@ -16,7 +16,8 @@ class _AgentConstants:
     run_lock_key: int = 7_310_403
     # How often the scheduler wakes to see whether a run is due.
     scheduler_tick_seconds: float = 60.0
-    runs_page: int = 50
+    # The most runs one date range lists: some 75 trading days of scheduled runs.
+    runs_page: int = 1000
 
     # --- the language model ----------------------------------------------------------
     # One model call; a run is many. Thinking counts against Claude's limit.
@@ -55,6 +56,8 @@ class _AgentConstants:
     busy: str = "The agent is already running."
     queued: str = "The agent will start in a moment."
     run_not_found: str = "This run does not exist."
+    runs_range_naive: str = "A date range needs a time zone, such as 2026-10-28T07:00:00Z."
+    runs_range_backwards: str = "The range ends before it starts."
     malformed_arguments: str = "The arguments of this call are not a JSON object."
 
 

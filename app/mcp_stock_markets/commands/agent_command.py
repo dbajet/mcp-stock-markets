@@ -187,8 +187,14 @@ class AgentCommand:
                 return 0
             return self._store.abandoned("Interrupted: the app stopped during the run.")
 
-    def runs(self) -> list[AgentRun]:
-        return self._store.runs(AgentConstants.runs_page)
+    def runs(self, start: datetime, end: datetime) -> list[AgentRun]:
+        """The runs started in a range of moments: the page turns the owner's
+        days, in their own time zone, into those moments."""
+        if start.tzinfo is None or end.tzinfo is None:
+            raise AppException(400, AgentConstants.runs_range_naive)
+        if end < start:
+            raise AppException(400, AgentConstants.runs_range_backwards)
+        return self._store.runs(start, end, AgentConstants.runs_page)
 
     def run(self, run_id: int) -> tuple[AgentRun, list[AgentStep]]:
         if (result := self._store.run(run_id)) is None:

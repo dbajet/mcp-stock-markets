@@ -46,6 +46,8 @@ from mcp_stock_markets.structures.settings import Settings
 from mcp_stock_markets.structures.user_account import UserAccount
 
 KEY = "Zm9yLXRlc3RzLW9ubHktZm9yLXRlc3RzLW9ubHktMzI="
+START = datetime(2026, 10, 28, 7, 0, tzinfo=UTC)
+END = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
 
 
 def helper_parts() -> tuple[SessionGuard, AgentCommand]:
@@ -172,19 +174,19 @@ def test_runs() -> None:
         patch.object(SessionGuard, "user", side_effect=[helper_user()]) as mock_user,
         patch.object(AgentCommand, "runs", side_effect=[[helper_run(2), helper_run(1)]]) as mock_runs,
     ):
-        result = tested.runs(request)
-    expected = {"runs": [helper_run_dict(2), helper_run_dict(1)]}
+        result = tested.runs(request, START, END)
+    expected = {"runs": [helper_run_dict(2), helper_run_dict(1)], "limit": 1000}
     assert result == expected
     exp_calls = [call(request)]
     assert mock_user.mock_calls == exp_calls
-    exp_calls = [call()]
+    exp_calls = [call(datetime(2026, 10, 28, 7, 0, tzinfo=UTC), datetime(2026, 10, 29, 7, 0, tzinfo=UTC))]
     assert mock_runs.mock_calls == exp_calls
 
 
 def test_runs__denied_without_a_session() -> None:
     tested = helper_tested()
     request = helper_request("GET", "/api/agent/runs")
-    result = helper_denied(lambda req: tested.runs(req), request)
+    result = helper_denied(lambda req: tested.runs(req, START, END), request)
     expected = (401, "Please sign in.", [call(request)])
     assert result == expected
 

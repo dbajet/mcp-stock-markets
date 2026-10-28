@@ -78,9 +78,12 @@ class AgentRunStore:
             (RunStatus.FAILED.value, error, RunStatus.RUNNING.value),
         )
 
-    def runs(self, limit: int) -> list[AgentRun]:
+    def runs(self, start: datetime, end: datetime, limit: int) -> list[AgentRun]:
+        """Started from `start` up to, not including, `end`; newest first."""
         rows = self._database.rows(
-            f"SELECT {self._RUN} FROM agent_runs ORDER BY started_at DESC, id DESC LIMIT %s", (limit,)
+            f"""SELECT {self._RUN} FROM agent_runs WHERE started_at >= %s AND started_at < %s
+                ORDER BY started_at DESC, id DESC LIMIT %s""",
+            (start, end, limit),
         )
         return [AgentRun.from_dict(row) for row in rows]
 

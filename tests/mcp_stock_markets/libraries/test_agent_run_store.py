@@ -141,7 +141,8 @@ def test_abandoned() -> None:
 
 @pytest.mark.database
 def test_runs() -> None:
-    """Newest first, up to the limit; two started at the same moment, the later id first."""
+    """Within the range, its end excluded; newest first, up to the limit; two
+    started at the same moment, the later id first."""
     database = helper_database()
     tested = helper_started(
         database,
@@ -149,9 +150,13 @@ def test_runs() -> None:
             (RunTrigger.SCHEDULE, datetime(2026, 10, 21, 14, 0, tzinfo=UTC)),
             (RunTrigger.MANUAL, datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
             (RunTrigger.SCHEDULE, datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
+            (RunTrigger.SCHEDULE, datetime(2026, 10, 21, 16, 0, tzinfo=UTC)),
+            (RunTrigger.SCHEDULE, datetime(2026, 10, 20, 15, 0, tzinfo=UTC)),
         ],
     )
-    result = (tested.runs(2), tested.runs(10))
+    start = datetime(2026, 10, 21, 14, 0, tzinfo=UTC)
+    end = datetime(2026, 10, 21, 16, 0, tzinfo=UTC)
+    result = (tested.runs(start, end, 2), tested.runs(start, end, 10))
     expected = (
         [
             helper_run(3, RunTrigger.SCHEDULE, datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),

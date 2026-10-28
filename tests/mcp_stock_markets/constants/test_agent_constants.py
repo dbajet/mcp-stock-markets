@@ -25,6 +25,8 @@ def test_class() -> None:
         "busy": "str",
         "queued": "str",
         "run_not_found": "str",
+        "runs_range_naive": "str",
+        "runs_range_backwards": "str",
         "malformed_arguments": "str",
     }
     assert is_dataclass(tested, fields)
@@ -38,7 +40,7 @@ def test_values() -> None:
         "max_tool_result_chars": 12000,
         "run_lock_key": 7310403,
         "scheduler_tick_seconds": 60.0,
-        "runs_page": 50,
+        "runs_page": 1000,
         "turn_timeout_seconds": 180.0,
         "claude_max_tokens": 16000,
         "claude_effort": "medium",
@@ -68,6 +70,8 @@ def test_values() -> None:
         "busy": "The agent is already running.",
         "queued": "The agent will start in a moment.",
         "run_not_found": "This run does not exist.",
+        "runs_range_naive": "A date range needs a time zone, such as 2026-10-28T07:00:00Z.",
+        "runs_range_backwards": "The range ends before it starts.",
         "malformed_arguments": "The arguments of this call are not a JSON object.",
     }
     assert result == expected
