@@ -104,8 +104,13 @@ class AlphaVantageBox:
             raise AppException(502, "Alpha Vantage's answer is not a JSON object.")
         for note in self._NOTES:
             if note in result:
-                raise AppException(503, f"Alpha Vantage refused the request: {str(result[note])[:200]}")
+                raise AppException(503, f"Alpha Vantage refused the request: {self.redacted(str(result[note]))[:200]}")
         return result
+
+    def redacted(self, note: str) -> str:
+        """The note without the key: a refusal quotes it ("We have detected
+        your API key as …"), and the note goes to the log and to the model."""
+        return note.replace(self._key, MarketConstants.redacted_key)
 
     def _spaced(self) -> None:
         """At most one request per spacing interval, across threads."""

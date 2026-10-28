@@ -82,6 +82,8 @@ class _MarketConstants:
     alpha_vantage_daily_function: str = "TIME_SERIES_DAILY"
     # Free keys allow one request a second (and 25 a day): requests are spaced.
     alpha_vantage_spacing_seconds: float = 1.2
+    # What stands for the key where Alpha Vantage's refusal quotes it.
+    redacted_key: str = "[key]"
     # A day's bars are fetched once per symbol per day: ten companies, ten
     # requests, well inside a free key's daily 25.
     history_max_days: int = 100

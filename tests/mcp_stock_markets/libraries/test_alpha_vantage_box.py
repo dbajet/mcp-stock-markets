@@ -263,6 +263,13 @@ def test_answer__no_key() -> None:
             id="the-daily-limit-cut-to-200-characters",
         ),
         pytest.param(
+            {"Information": "We have detected your API key as the-key and our standard API rate limit is 25."},
+            503,
+            "Alpha Vantage refused the request: We have detected your API key as [key] and our standard API rate "
+            "limit is 25.",
+            id="the-key-quoted-is-redacted",
+        ),
+        pytest.param(
             FakeAlphaVantage.refusal("Note"),
             503,
             "Alpha Vantage refused the request: Thank you for using Alpha Vantage! Our standard API call frequency "
@@ -295,6 +302,22 @@ def test_answer__a_failure(outcome: dict[str, Any] | bytes | BaseException, exp_
     assert result == expected
     exp_requests = [(URL, helper_query("TIME_SERIES_DAILY", "AAPL"), "GET", 15.0)]
     assert fake.requests == exp_requests
+
+
+@pytest.mark.parametrize(
+    "note, expected",
+    [
+        pytest.param(
+            "Your API key as the-key is over its limit.", "Your API key as [key] is over its limit.", id="quoted"
+        ),
+        pytest.param("the-key, the-key", "[key], [key]", id="quoted-twice"),
+        pytest.param("Invalid API call.", "Invalid API call.", id="not-quoted"),
+    ],
+)
+def test_redacted(note: str, expected: str) -> None:
+    tested = helper_instance("the-key")
+    result = tested.redacted(note)
+    assert result == expected
 
 
 def test__spaced() -> None:
