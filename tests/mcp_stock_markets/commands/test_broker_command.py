@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import threading
 from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import call, patch
@@ -214,7 +215,7 @@ def test_view() -> None:
     ]
     with (
         patch.object(PortfolioStore, "holdings", side_effect=[[apple, jpmorgan]]) as mock_holdings,
-        patch.object(BrokerCommand, "position", side_effect=positions) as mock_position,
+        patch.object(BrokerCommand, "positions", side_effect=[tuple(positions)]) as mock_positions,
         patch.object(CompanyStore, "universe", side_effect=[["AAPL", "MSFT"]]) as mock_universe,
     ):
         result = tested.view(helper_portfolio(Decimal("10.00")), NOW)
@@ -240,10 +241,15 @@ def test_view() -> None:
     exp_calls = [call(7)]
     assert mock_holdings.mock_calls == exp_calls
     exp_calls = [
-        call(Holding(symbol="AAPL", quantity=2, cost=Decimal("400.0000")), datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
-        call(Holding(symbol="JPM", quantity=1, cost=Decimal("250.5000")), datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
+        call(
+            [
+                Holding(symbol="AAPL", quantity=2, cost=Decimal("400.0000")),
+                Holding(symbol="JPM", quantity=1, cost=Decimal("250.5000")),
+            ],
+            datetime(2026, 10, 21, 15, 0, tzinfo=UTC),
+        )
     ]
-    assert mock_position.mock_calls == exp_calls
+    assert mock_positions.mock_calls == exp_calls
     exp_calls = [call()]
     assert mock_universe.mock_calls == exp_calls
 
@@ -252,7 +258,7 @@ def test_view__nothing_held() -> None:
     tested = helper_instance()
     with (
         patch.object(PortfolioStore, "holdings", side_effect=[[]]) as mock_holdings,
-        patch.object(BrokerCommand, "position", side_effect=[]) as mock_position,
+        patch.object(BrokerCommand, "positions", side_effect=[()]) as mock_positions,
         patch.object(CompanyStore, "universe", side_effect=[[]]) as mock_universe,
     ):
         result = tested.view(helper_portfolio(Decimal("500.00")), NOW)
@@ -266,10 +272,54 @@ def test_view__nothing_held() -> None:
     assert result == expected
     exp_calls = [call(7)]
     assert mock_holdings.mock_calls == exp_calls
-    exp_calls = []
-    assert mock_position.mock_calls == exp_calls
+    exp_calls = [call([], datetime(2026, 10, 21, 15, 0, tzinfo=UTC))]
+    assert mock_positions.mock_calls == exp_calls
     exp_calls = [call()]
     assert mock_universe.mock_calls == exp_calls
+
+
+def test_positions() -> None:
+    tested = helper_instance()
+    apple = Holding(symbol="AAPL", quantity=2, cost=Decimal("400.0000"))
+    jpmorgan = Holding(symbol="JPM", quantity=1, cost=Decimal("250.5000"))
+    # Both lookups wait for each other: priced one after another, the first
+    # would wait alone and break the barrier.
+    both = threading.Barrier(2, timeout=5)
+    priced = {
+        "AAPL": Position(holding=apple, quote=None, value=Decimal("400.0000")),
+        "JPM": Position(holding=jpmorgan, quote=None, value=Decimal("250.5000")),
+    }
+
+    def helper_priced(holding: Holding, now: datetime) -> Position:
+        both.wait()
+        return priced[holding.symbol]
+
+    with patch.object(BrokerCommand, "position", side_effect=helper_priced) as mock_position:
+        result = tested.positions([apple, jpmorgan], NOW)
+    expected = (
+        Position(
+            holding=Holding(symbol="AAPL", quantity=2, cost=Decimal("400.0000")), quote=None, value=Decimal("400.0000")
+        ),
+        Position(
+            holding=Holding(symbol="JPM", quantity=1, cost=Decimal("250.5000")), quote=None, value=Decimal("250.5000")
+        ),
+    )
+    assert result == expected
+    # The two threads call in either order.
+    exp_calls = [
+        call(Holding(symbol="AAPL", quantity=2, cost=Decimal("400.0000")), datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
+        call(Holding(symbol="JPM", quantity=1, cost=Decimal("250.5000")), datetime(2026, 10, 21, 15, 0, tzinfo=UTC)),
+    ]
+    assert sorted(mock_position.mock_calls, key=lambda made: made.args[0].symbol) == exp_calls
+
+
+def test_positions__nothing_held() -> None:
+    tested = helper_instance()
+    with patch.object(BrokerCommand, "position", side_effect=[]) as mock_position:
+        result = tested.positions([], NOW)
+    assert result == ()
+    exp_calls = []
+    assert mock_position.mock_calls == exp_calls
 
 
 def test_position() -> None:

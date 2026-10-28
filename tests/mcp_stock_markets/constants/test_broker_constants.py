@@ -16,6 +16,7 @@ def test_class() -> None:
         "order_lock_key": "int",
         "valuation_interval_minutes": "int",
         "valuations_page": "int",
+        "pricing_threads": "int",
         "no_portfolio": "str",
     }
     assert is_dataclass(tested, fields)
@@ -32,6 +33,7 @@ def test_values() -> None:
         "order_lock_key": 7310402,
         "valuation_interval_minutes": 30,
         "valuations_page": 2000,
+        "pricing_threads": 10,
         "no_portfolio": "There is no portfolio: set BOOTSTRAP_ADMIN_EMAIL and restart.",
     }
     assert result == expected

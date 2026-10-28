@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 
@@ -64,7 +65,8 @@ class BrokerCommand:
         return result
 
     def view(self, portfolio: Portfolio, now: datetime) -> PortfolioView:
-        positions = tuple(self.position(holding, now) for holding in self._store.holdings(portfolio.portfolio_id))
+        holdings = self._store.holdings(portfolio.portfolio_id)
+        positions = self.positions(holdings, now)
         holdings_value = sum((position.value for position in positions), Decimal(0)).quantize(
             Decimal(MarketConstants.price_places)
         )
@@ -75,6 +77,14 @@ class BrokerCommand:
             total_value=portfolio.cash + holdings_value,
             universe=tuple(self._companies.universe()),
         )
+
+    def positions(self, holdings: list[Holding], now: datetime) -> tuple[Position, ...]:
+        """Every holding priced at once, in the holdings' order: a slow Google
+        costs one lookup's wait, not one per stock."""
+        if not holdings:
+            return ()
+        with ThreadPoolExecutor(min(len(holdings), BrokerConstants.pricing_threads)) as pool:
+            return tuple(pool.map(lambda holding: self.position(holding, now), holdings))
 
     def position(self, holding: Holding, now: datetime) -> Position:
         """At the latest price: read now, or the last one read when reading
