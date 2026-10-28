@@ -17,10 +17,11 @@ from mcp_stock_markets.structures.quote import Quote
 
 
 class QuoteCommand:
-    """Prices and the market's hours. A price comes from Google Finance, live,
-    or from Alpha Vantage when Google fails; one read in the last minute is
-    served again. Daily history comes from Alpha Vantage, once a day per
-    stock."""
+    """Prices and the market's hours. A price comes from Google Finance, live;
+    one read in the last minute is served again. When Google fails, the last
+    price read serves, however old: Alpha Vantage is asked only for a stock
+    never priced, since its free quote is a day's close and its 25 requests a
+    day belong to the daily history, read once a day per stock."""
 
     def __init__(
         self,
@@ -44,10 +45,16 @@ class QuoteCommand:
         cached = self._store.latest(wanted)
         if cached is not None and now - cached.fetched_at < timedelta(seconds=MarketConstants.quote_cache_seconds):
             return cached
-        return self._store.stored(self.fetched(wanted, now))
+        try:
+            return self._store.stored(self.fetched(wanted, now, cached is None))
+        except AppException:
+            if cached is None:
+                raise
+            # Its trade time says how old it is: the broker refuses a stale one.
+            return cached
 
-    def fetched(self, symbol: str, now: datetime) -> Quote:
-        """Google first; Alpha Vantage, when it has a key, if Google fails."""
+    def fetched(self, symbol: str, now: datetime, ask_alpha_vantage: bool) -> Quote:
+        """Google first; Alpha Vantage, when asked and it has a key, if Google fails."""
         company = self._companies.company(symbol)
         # A company that left the index since it was bought is still sold: its
         # exchange is then unknown, and the NYSE, where most members trade, is tried.
@@ -56,7 +63,7 @@ class QuoteCommand:
             return self._google.quote(symbol, exchange, now)
         except AppException as error:
             logging.getLogger(Constants.logger_name).warning("[QUOTES] Google for %s: %s", symbol, error.message)
-            if not self._alpha_vantage.is_configured():
+            if not ask_alpha_vantage or not self._alpha_vantage.is_configured():
                 raise AppException(502, f"No price could be fetched for {symbol} right now.") from None
         try:
             return self._alpha_vantage.quote(symbol, now)
@@ -76,7 +83,7 @@ class QuoteCommand:
         today = self._clock.status(now).now.date()
         if self._store.fetched_on(wanted) != today:
             try:
-                self._store.bars_replaced(wanted, self._alpha_vantage.daily(wanted), today)
+                self._store.bars_replaced(wanted, self._alpha_vantage.daily(wanted, today), today)
             except AppException as error:
                 logging.getLogger(Constants.logger_name).warning("[HISTORY] %s: %s", wanted, error.message)
                 if self._store.fetched_on(wanted) is None:
