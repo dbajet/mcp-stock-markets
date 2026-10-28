@@ -127,6 +127,8 @@ def test_daily() -> None:
         {
             "2026-10-19": (336.1, 338.9, 335.5, 338.2, 39000000),
             "2026-10-20": (338.0, 340.0, 337.0, 339.5, 41000000),
+            # Today's, still being made at 11:00 in New York: left out.
+            "2026-10-21": (339.4, 341.0, 339.0, 340.2, 3300000),
         },
     )
     # Newest first here, to show the bars come back oldest first whatever the order.
@@ -164,6 +166,7 @@ def test_daily() -> None:
     [
         pytest.param({"bars": None, "symbol": "ZZZZ", "next_page_token": None}, id="an-unknown-symbol"),
         pytest.param({"bars": [], "symbol": "AAPL", "next_page_token": None}, id="no-bar"),
+        pytest.param(FakeAlpaca.bars("AAPL", {"2026-10-21": (1, 1, 1, 1, 1)}), id="only-today-s-bar"),
         pytest.param({"message": "forbidden"}, id="no-bars"),
         pytest.param({"bars": [{"t": "2026-10-20T04:00:00Z"}]}, id="a-bar-without-prices"),
         pytest.param(

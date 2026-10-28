@@ -58,9 +58,12 @@ class AlpacaBox:
         )
 
     def daily(self, symbol: str, now: datetime) -> list[DailyBar]:
-        """Some hundred trading days of daily bars, oldest first, split-adjusted,
-        up to the delay the free plan asks of every-exchange data."""
-        start = now.astimezone(self._zone).date() - timedelta(days=MarketConstants.alpaca_history_calendar_days)
+        """Some hundred finished trading days of daily bars, oldest first,
+        split-adjusted, up to the delay the free plan asks of every-exchange
+        data. Today's bar is left out: during the session it is still being
+        made, and stored once a day it would pass for a finished day."""
+        today = now.astimezone(self._zone).date()
+        start = today - timedelta(days=MarketConstants.alpaca_history_calendar_days)
         end = now - timedelta(minutes=MarketConstants.alpaca_bars_delay_minutes)
         query = {
             "timeframe": "1Day",
@@ -83,6 +86,7 @@ class AlpacaBox:
                     volume=int(bar["v"]),
                 )
                 for bar in data["bars"]
+                if self.moment(str(bar["t"])).astimezone(self._zone).date() < today
             ]
         except (KeyError, TypeError, ValueError, ArithmeticError):
             # Alpaca answers `"bars": null` for a symbol it does not know.
