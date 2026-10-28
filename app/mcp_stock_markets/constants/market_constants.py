@@ -46,6 +46,9 @@ class _MarketConstants:
     # A quote fetched this recently is served again rather than fetched anew:
     # the agent asks for the same price several times in one run.
     quote_cache_seconds: int = 60
+    # Several stocks are priced at once, not one after another: each lookup may
+    # wait up to the web timeout, and the agent's MCP call allows 30 s in all.
+    pricing_threads: int = 10
     # An order is priced on a trade no older than this. Google Finance's
     # regular-session price is minutes fresh while the market is open; an
     # older one means the market did not trade (a holiday the calendar above
@@ -112,6 +115,9 @@ class _MarketConstants:
 
     # --- messages --------------------------------------------------------------------
     history_needs_key: str = "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY)."
+    alpha_vantage_paused: str = (
+        "Alpha Vantage refused a request earlier today (a free key allows 25 a day): it is asked again tomorrow."
+    )
     sp500_unavailable: str = "The S&P 500 list could not be read."
 
 

@@ -21,6 +21,7 @@ from tests.support.fake_clock import FakeClock
 
 NOW = datetime(2026, 10, 21, 23, 0, tzinfo=UTC)
 URL = "https://www.alphavantage.co/query"
+TODAY = date(2026, 10, 21)
 
 
 def helper_instance(key: str) -> AlphaVantageBox:
@@ -40,8 +41,9 @@ def test___init__() -> None:
         tested._zone,
         type(tested._spacing),
         tested._last_request,
+        tested._refused_on,
     )
-    expected = (True, "the-key", ZoneInfo("America/New_York"), type(threading.Lock()), 0.0)
+    expected = (True, "the-key", ZoneInfo("America/New_York"), type(threading.Lock()), 0.0, None)
     assert result == expected
 
 
@@ -134,7 +136,7 @@ def test_daily() -> None:
         ]
     )
     with fake.installed(), FakeClock(1000.0).installed(alpha_vantage_box_module):
-        result = tested.daily("BRK.B")
+        result = tested.daily("BRK.B", TODAY)
     # Oldest first, whatever order the answer has.
     expected = [
         DailyBar(
@@ -196,7 +198,7 @@ def test_daily__no_history(answer: dict[str, Any]) -> None:
     fake = FakeAlphaVantage([answer])
     with fake.installed(), FakeClock(1000.0).installed(alpha_vantage_box_module):
         with pytest.raises(AppException) as exc_info:
-            tested.daily("AAPL")
+            tested.daily("AAPL", TODAY)
     result = (exc_info.value.status_code, exc_info.value.message)
     expected = (502, "Alpha Vantage has no daily history for AAPL.")
     assert result == expected
@@ -222,7 +224,7 @@ def test_answer() -> None:
     fake = FakeAlphaVantage([{"Global Quote": {"05. price": "1.0000"}}])
     clock = FakeClock(1000.0)
     with fake.installed(), clock.installed(alpha_vantage_box_module):
-        result = tested.answer({"function": "GLOBAL_QUOTE", "symbol": "AAPL"})
+        result = tested.answer({"function": "GLOBAL_QUOTE", "symbol": "AAPL"}, TODAY)
     expected = {"Global Quote": {"05. price": "1.0000"}}
     assert result == expected
     # The key travels in the query string, as Alpha Vantage requires.
@@ -238,7 +240,7 @@ def test_answer__no_key() -> None:
     clock = FakeClock(1000.0)
     with fake.installed(), clock.installed(alpha_vantage_box_module):
         with pytest.raises(AppException) as exc_info:
-            tested.answer({"function": "GLOBAL_QUOTE", "symbol": "AAPL"})
+            tested.answer({"function": "GLOBAL_QUOTE", "symbol": "AAPL"}, TODAY)
     result = (exc_info.value.status_code, exc_info.value.message)
     expected = (503, "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).")
     assert result == expected
@@ -296,11 +298,65 @@ def test_answer__a_failure(outcome: dict[str, Any] | bytes | BaseException, exp_
     fake = FakeAlphaVantage([outcome])
     with fake.installed(), FakeClock(1000.0).installed(alpha_vantage_box_module):
         with pytest.raises(AppException) as exc_info:
-            tested.answer({"function": "TIME_SERIES_DAILY", "symbol": "AAPL"})
+            tested.answer({"function": "TIME_SERIES_DAILY", "symbol": "AAPL"}, TODAY)
     result = (exc_info.value.status_code, exc_info.value.message)
     expected = (exp_status, exp_message)
     assert result == expected
     exp_requests = [(URL, helper_query("TIME_SERIES_DAILY", "AAPL"), "GET", 15.0)]
+    assert fake.requests == exp_requests
+
+
+def test_answer__refused_for_its_limits_not_asked_again_that_day() -> None:
+    tested = helper_instance("the-key")
+    fake = FakeAlphaVantage([FakeAlphaVantage.refusal("Information"), {"Global Quote": {"05. price": "1.0000"}}])
+    query = {"function": "GLOBAL_QUOTE", "symbol": "AAPL"}
+    messages = []
+    with fake.installed(), FakeClock(1000.0).installed(alpha_vantage_box_module):
+        for today in (TODAY, TODAY):
+            with pytest.raises(AppException) as exc_info:
+                tested.answer(query, today)
+            messages.append((exc_info.value.status_code, exc_info.value.message))
+        tomorrow = tested.answer(query, date(2026, 10, 22))
+    result = (messages, tomorrow)
+    expected = (
+        [
+            (
+                503,
+                "Alpha Vantage refused the request: We have detected your API key as demo and our standard API rate "
+                "limit is 25 requests per day. Please subscribe to any of the premium plans at "
+                "https://www.alphavantage.co/premium/ to instantly remove a",
+            ),
+            (
+                503,
+                "Alpha Vantage refused a request earlier today (a free key allows 25 a day): it is asked again "
+                "tomorrow.",
+            ),
+        ],
+        {"Global Quote": {"05. price": "1.0000"}},
+    )
+    assert result == expected
+    # The second call that day sent nothing.
+    exp_requests = [
+        (URL, helper_query("GLOBAL_QUOTE", "AAPL"), "GET", 15.0),
+        (URL, helper_query("GLOBAL_QUOTE", "AAPL"), "GET", 15.0),
+    ]
+    assert fake.requests == exp_requests
+
+
+def test_answer__a_bad_call_is_not_a_limit() -> None:
+    tested = helper_instance("the-key")
+    fake = FakeAlphaVantage([FakeAlphaVantage.refusal("Error Message"), {"Global Quote": {"05. price": "1.0000"}}])
+    query = {"function": "GLOBAL_QUOTE", "symbol": "AAPL"}
+    with fake.installed(), FakeClock(1000.0).installed(alpha_vantage_box_module):
+        with pytest.raises(AppException):
+            tested.answer(query, TODAY)
+        result = tested.answer(query, TODAY)
+    expected = {"Global Quote": {"05. price": "1.0000"}}
+    assert result == expected
+    exp_requests = [
+        (URL, helper_query("GLOBAL_QUOTE", "AAPL"), "GET", 15.0),
+        (URL, helper_query("GLOBAL_QUOTE", "AAPL"), "GET", 15.0),
+    ]
     assert fake.requests == exp_requests
 
 

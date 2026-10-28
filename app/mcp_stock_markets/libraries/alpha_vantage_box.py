@@ -26,9 +26,12 @@ class AlphaVantageBox:
     spaced and the callers cache what they read. Alpha Vantage answers a
     refused request with HTTP 200 and a JSON note ("Information", "Note" or
     "Error Message") instead of data: that note is a failure here, never
-    read as an empty answer."""
+    read as an empty answer. Refused for its limits ("Information", "Note"),
+    it is not asked again before the next New York day: each request it
+    refuses still counts against the 25."""
 
     _NOTES = ("Information", "Note", "Error Message")
+    _LIMITS = ("Information", "Note")
 
     def __init__(self, web: WebBox, key: str) -> None:
         self._web = web
@@ -36,6 +39,8 @@ class AlphaVantageBox:
         self._zone = ZoneInfo(MarketConstants.timezone)
         self._spacing = threading.Lock()
         self._last_request = 0.0
+        # The New York day Alpha Vantage refused a request for its limits.
+        self._refused_on: date | None = None
 
     def is_configured(self) -> bool:
         return self._key != ""
@@ -43,7 +48,8 @@ class AlphaVantageBox:
     def quote(self, symbol: str, now: datetime) -> Quote:
         """GLOBAL_QUOTE: a price dated by its trading day, read as that day's close."""
         data = self.answer(
-            {"function": MarketConstants.alpha_vantage_quote_function, "symbol": self.api_symbol(symbol)}
+            {"function": MarketConstants.alpha_vantage_quote_function, "symbol": self.api_symbol(symbol)},
+            now.astimezone(self._zone).date(),
         )
         try:
             fields = data["Global Quote"]
@@ -62,10 +68,10 @@ class AlphaVantageBox:
             fetched_at=now,
         )
 
-    def daily(self, symbol: str) -> list[DailyBar]:
+    def daily(self, symbol: str, today: date) -> list[DailyBar]:
         """The last hundred trading days ("compact"), oldest first."""
         data = self.answer(
-            {"function": MarketConstants.alpha_vantage_daily_function, "symbol": self.api_symbol(symbol)}
+            {"function": MarketConstants.alpha_vantage_daily_function, "symbol": self.api_symbol(symbol)}, today
         )
         try:
             series = data["Time Series (Daily)"]
@@ -90,9 +96,13 @@ class AlphaVantageBox:
         """Alpha Vantage writes a share class with a dash (BRK-B), where Wikipedia has a dot."""
         return symbol.replace(".", "-")
 
-    def answer(self, query: dict[str, str]) -> dict[str, Any]:
+    def answer(self, query: dict[str, str], today: date) -> dict[str, Any]:
+        """The answer to one request; `today`, in New York, is when a refusal
+        for the limits was met."""
         if not self._key:
             raise AppException(503, MarketConstants.history_needs_key)
+        if self._refused_on == today:
+            raise AppException(503, MarketConstants.alpha_vantage_paused)
         self._spaced()
         # The key travels in the query string, as Alpha Vantage requires: it is never logged.
         text = self._web.text(f"{MarketConstants.alpha_vantage_url}?{urlencode(query | {'apikey': self._key})}", {})
@@ -104,6 +114,8 @@ class AlphaVantageBox:
             raise AppException(502, "Alpha Vantage's answer is not a JSON object.")
         for note in self._NOTES:
             if note in result:
+                if note in self._LIMITS:
+                    self._refused_on = today
                 raise AppException(503, f"Alpha Vantage refused the request: {self.redacted(str(result[note]))[:200]}")
         return result
 

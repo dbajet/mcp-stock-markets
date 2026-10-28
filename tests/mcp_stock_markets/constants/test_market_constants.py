@@ -16,6 +16,7 @@ def test_class() -> None:
         "holidays": "tuple[str, ...]",
         "early_closes": "tuple[str, ...]",
         "quote_cache_seconds": "int",
+        "pricing_threads": "int",
         "quote_max_age_seconds": "int",
         "price_places": "str",
         "money_places": "str",
@@ -49,6 +50,7 @@ def test_class() -> None:
         "search_max_results": "int",
         "http_timeout_seconds": "float",
         "history_needs_key": "str",
+        "alpha_vantage_paused": "str",
         "sp500_unavailable": "str",
     }
     assert is_dataclass(tested, fields)
@@ -86,6 +88,7 @@ def test_values() -> None:
         ),
         "early_closes": ("2026-11-27", "2026-12-24", "2027-11-26"),
         "quote_cache_seconds": 60,
+        "pricing_threads": 10,
         "quote_max_age_seconds": 900,
         "price_places": "0.0001",
         "money_places": "0.01",
@@ -121,6 +124,9 @@ def test_values() -> None:
         "search_max_results": 25,
         "http_timeout_seconds": 15.0,
         "history_needs_key": "Daily history needs an Alpha Vantage key (ALPHA_VANTAGE_API_KEY).",
+        "alpha_vantage_paused": (
+            "Alpha Vantage refused a request earlier today (a free key allows 25 a day): it is asked again tomorrow."
+        ),
         "sp500_unavailable": "The S&P 500 list could not be read.",
     }
     assert result == expected
