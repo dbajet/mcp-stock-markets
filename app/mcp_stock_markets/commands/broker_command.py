@@ -83,7 +83,7 @@ class BrokerCommand:
         costs one lookup's wait, not one per stock."""
         if not holdings:
             return ()
-        with ThreadPoolExecutor(min(len(holdings), BrokerConstants.pricing_threads)) as pool:
+        with ThreadPoolExecutor(min(len(holdings), MarketConstants.pricing_threads)) as pool:
             return tuple(pool.map(lambda holding: self.position(holding, now), holdings))
 
     def position(self, holding: Holding, now: datetime) -> Position:

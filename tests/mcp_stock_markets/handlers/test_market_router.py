@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -181,7 +182,7 @@ def test_market(mock_datetime: MagicMock) -> None:
         patch.object(QuoteCommand, "market", side_effect=[status]) as mock_market,
         patch.object(CompanyCommand, "limit", side_effect=[5]) as mock_limit,
         patch.object(CompanyCommand, "universe", side_effect=[universe]) as mock_universe,
-        patch.object(MarketRouter, "priced", side_effect=priced) as mock_priced,
+        patch.object(MarketRouter, "universe_priced", side_effect=[priced]) as mock_universe_priced,
         patch.object(CompanyCommand, "count", side_effect=[503]) as mock_count,
     ):
         result = tested.market(request)
@@ -208,11 +209,8 @@ def test_market(mock_datetime: MagicMock) -> None:
     assert mock_limit.mock_calls == exp_calls
     assert mock_universe.mock_calls == exp_calls
     assert mock_count.mock_calls == exp_calls
-    exp_calls = [
-        call(helper_company_dict("MSFT", "Microsoft"), "MSFT", NOW),
-        call(helper_company_dict("ORCL", "Oracle"), "ORCL", NOW),
-    ]
-    assert mock_priced.mock_calls == exp_calls
+    exp_calls = [call([helper_company("MSFT", "Microsoft"), helper_company("ORCL", "Oracle")], NOW)]
+    assert mock_universe_priced.mock_calls == exp_calls
     exp_calls = [call.now(UTC)]
     assert mock_datetime.mock_calls == exp_calls
 
@@ -223,6 +221,44 @@ def test_market__denied_without_a_session() -> None:
     result = helper_denied(lambda req: tested.market(req), request)
     expected = (401, "Please sign in.", [call(request)])
     assert result == expected
+
+
+def test_universe_priced() -> None:
+    tested = helper_tested()
+    # Both lookups wait for each other: priced one after another, the first
+    # would wait alone and break the barrier.
+    both = threading.Barrier(2, timeout=5)
+    priced = {
+        "MSFT": helper_company_dict("MSFT", "Microsoft") | {"quote": helper_quote_dict()},
+        "ORCL": helper_company_dict("ORCL", "Oracle") | {"quote": None, "quote_error": "No price."},
+    }
+
+    def helper_priced(company: dict[str, Any], symbol: str, now: datetime) -> dict[str, Any]:
+        both.wait()
+        return priced[symbol]
+
+    with patch.object(MarketRouter, "priced", side_effect=helper_priced) as mock_priced:
+        result = tested.universe_priced([helper_company("MSFT", "Microsoft"), helper_company("ORCL", "Oracle")], NOW)
+    expected = [
+        helper_company_dict("MSFT", "Microsoft") | {"quote": helper_quote_dict()},
+        helper_company_dict("ORCL", "Oracle") | {"quote": None, "quote_error": "No price."},
+    ]
+    assert result == expected
+    # The two threads call in either order.
+    exp_calls = [
+        call(helper_company_dict("MSFT", "Microsoft"), "MSFT", NOW),
+        call(helper_company_dict("ORCL", "Oracle"), "ORCL", NOW),
+    ]
+    assert sorted(mock_priced.mock_calls, key=lambda made: made.args[1]) == exp_calls
+
+
+def test_universe_priced__an_empty_market() -> None:
+    tested = helper_tested()
+    with patch.object(MarketRouter, "priced", side_effect=[]) as mock_priced:
+        result = tested.universe_priced([], NOW)
+    assert result == []
+    exp_calls = []
+    assert mock_priced.mock_calls == exp_calls
 
 
 def test_priced() -> None:

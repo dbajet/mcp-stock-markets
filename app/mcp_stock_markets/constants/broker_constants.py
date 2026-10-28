@@ -17,9 +17,6 @@ class _BrokerConstants:
     # while the market is open, for the chart of the portfolio's value.
     valuation_interval_minutes: int = 30
     valuations_page: int = 2000
-    # The holdings are priced at once, not one after another: each lookup may
-    # wait up to the web timeout, and the agent's MCP call allows 30 s in all.
-    pricing_threads: int = 10
 
     # --- messages --------------------------------------------------------------------
     no_portfolio: str = "There is no portfolio: set BOOTSTRAP_ADMIN_EMAIL and restart."

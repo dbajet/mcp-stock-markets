@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
@@ -7,9 +8,11 @@ from fastapi import APIRouter, Request
 
 from mcp_stock_markets.commands.company_command import CompanyCommand
 from mcp_stock_markets.commands.quote_command import QuoteCommand
+from mcp_stock_markets.constants.market_constants import MarketConstants
 from mcp_stock_markets.handlers.session_guard import SessionGuard
 from mcp_stock_markets.handlers.universe_request import UniverseRequest
 from mcp_stock_markets.structures.app_exception import AppException
+from mcp_stock_markets.structures.company import Company
 
 
 class MarketRouter:
@@ -36,9 +39,17 @@ class MarketRouter:
         return {
             "status": self._quotes.market(now).to_dict(),
             "limit": self._companies.limit(),
-            "universe": [self.priced(company.to_dict(), company.symbol, now) for company in self._companies.universe()],
+            "universe": self.universe_priced(self._companies.universe(), now),
             "sp500_companies": self._companies.count(),
         }
+
+    def universe_priced(self, companies: list[Company], now: datetime) -> list[dict[str, Any]]:
+        """Every company priced at once, in the market's order: the page waits
+        for the slowest lookup, not for one after another."""
+        if not companies:
+            return []
+        with ThreadPoolExecutor(min(len(companies), MarketConstants.pricing_threads)) as pool:
+            return list(pool.map(lambda company: self.priced(company.to_dict(), company.symbol, now), companies))
 
     def priced(self, company: dict[str, Any], symbol: str, now: datetime) -> dict[str, Any]:
         """A company with its latest price, or with why there is none."""
