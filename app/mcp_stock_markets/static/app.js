@@ -16,7 +16,11 @@ const KIND_LABELS = { claude: "Cloud · Claude", openai: "OpenAI-compatible" };
 const VIEWS = ["portfolio", "market", "agent", "run", "trades", "settings"];
 const DEFAULT_VIEW = "portfolio";
 const LINK_PATH = "/auth/link";
-const POLL_MILLISECONDS = 5000;
+// A running agent run is followed closely; the portfolio only while the market
+// is open, and no faster than a price is read again (60 s, QuoteCommand).
+const RUN_POLL_MILLISECONDS = 5000;
+const PORTFOLIO_POLL_MILLISECONDS = 60000;
+const LIVE_VIEWS = ["portfolio", "agent", "run"];
 const SEARCH_DELAY_MILLISECONDS = 250;
 const GENERIC_ERROR = "Something went wrong. Try again.";
 const RUN_LABELS = {
@@ -225,6 +229,10 @@ function opened(view) {
     heading.setAttribute("tabindex", "-1");
     heading.focus({ preventScroll: true });
   }
+  viewLoaded(view);
+}
+
+function viewLoaded(view) {
   const loaders = {
     portfolio: loadPortfolio,
     market: loadMarket,
@@ -269,9 +277,21 @@ function momentText(iso) {
 
 // --- polling ------------------------------------------------------------------------
 
-function pollScheduled(action) {
+// A hidden tab is not polled: it is loaded again when it shows.
+function pollScheduled(action, milliseconds) {
   pollStopped();
-  state.pollTimer = window.setTimeout(action, POLL_MILLISECONDS);
+  if (!document.hidden) {
+    state.pollTimer = window.setTimeout(action, milliseconds);
+  }
+}
+
+// Only the views that refresh themselves load again: Settings, say, would test
+// every model connection each time the tab shows.
+function visibilityChanged() {
+  pollStopped();
+  if (!document.hidden && LIVE_VIEWS.includes(state.view)) {
+    viewLoaded(state.view);
+  }
 }
 
 function pollStopped() {
@@ -394,8 +414,8 @@ async function loadPortfolio() {
   }
   renderPortfolio(view, market.status);
   renderChart(history);
-  if (state.view === "portfolio") {
-    pollScheduled(loadPortfolio);
+  if (state.view === "portfolio" && market.status.is_open) {
+    pollScheduled(loadPortfolio, PORTFOLIO_POLL_MILLISECONDS);
   }
 }
 
@@ -639,7 +659,7 @@ async function loadRuns() {
   $("#runs-empty").hidden = answer.runs.length > 0;
   $("#run-list").replaceChildren(...answer.runs.map(runItem));
   if (state.view === "agent" && answer.runs.some((run) => run.status === "running")) {
-    pollScheduled(loadRuns);
+    pollScheduled(loadRuns, RUN_POLL_MILLISECONDS);
   }
 }
 
@@ -711,7 +731,7 @@ async function loadRun() {
   }
   renderRun(answer.run, answer.steps);
   if (state.view === "run" && answer.run.status === "running") {
-    pollScheduled(loadRun);
+    pollScheduled(loadRun, RUN_POLL_MILLISECONDS);
   }
 }
 
@@ -1152,6 +1172,7 @@ function bound() {
     button.addEventListener("click", () => opened(button.dataset.nav));
   });
   $("#sign-out").addEventListener("click", signOut);
+  document.addEventListener("visibilitychange", visibilityChanged);
   $("#link-form").addEventListener("submit", linkRequested);
   $("#link-confirm").addEventListener("click", linkConfirmed);
   $("#link-back").addEventListener("click", linkAbandoned);
